@@ -526,6 +526,16 @@ namespace librealsense
         depth_ep->register_pixel_format(pf_y8); // Left Only - Luminance
         depth_ep->register_pixel_format(pf_yuyv); // Left Only
 
+        /*depth_ep->register_pixel_format({
+            { RS2_FORMAT_YUYV },
+            { RS2_FORMAT_RGBA8 },
+            []() {
+                return std::make_shared<yuy2grb>(RS2_FORMAT_RGBA8);
+            }
+            });
+
+        depth_ep->register_pixel_format<yuy2grb>();*/
+
         return depth_ep;
     }
 

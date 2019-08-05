@@ -314,6 +314,8 @@ namespace librealsense
             CASE(6DOF)
             CASE(Y10BPACK)
             CASE(DISTANCE)
+            CASE(INZI)
+            CASE(INVI)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE

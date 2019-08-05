@@ -50,11 +50,13 @@ namespace librealsense
             counter = 0;
         }
 
-        double get_frame_timestamp(const request_mapping& /*mode*/, const platform::frame_object& fo) override
+        double get_frame_timestamp(std::shared_ptr<frame_interface> frame) override
         {
             std::lock_guard<std::recursive_mutex> lock(_mtx);
+
             // Timestamps are encoded within the first 32 bits of the image and provided in 10nsec units
-            uint32_t rolling_timestamp = *reinterpret_cast<const uint32_t *>(fo.pixels);
+            auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+            uint32_t rolling_timestamp = *reinterpret_cast<const uint32_t *>(f->get_frame_data());
             if (!started)
             {
                 total = last_timestamp = rolling_timestamp;
@@ -69,15 +71,17 @@ namespace librealsense
             return total * 0.00001; // to msec
         }
 
-        unsigned long long get_frame_counter(const request_mapping & /*mode*/, const platform::frame_object& fo) const override
+        unsigned long long get_frame_counter(std::shared_ptr<frame_interface> frame) const override
         {
             std::lock_guard<std::recursive_mutex> lock(_mtx);
             return ++counter;
         }
 
-        rs2_timestamp_domain get_frame_timestamp_domain(const request_mapping & mode, const platform::frame_object& fo) const override
+        rs2_timestamp_domain get_frame_timestamp_domain(std::shared_ptr<frame_interface> frame) const override
         {
-            if(fo.metadata_size >= platform::uvc_header_size )
+            auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+
+            if(f->additional_data.metadata_size >= platform::uvc_header_size )
                 return RS2_TIMESTAMP_DOMAIN_HARDWARE_CLOCK;
             else
                 return RS2_TIMESTAMP_DOMAIN_SYSTEM_TIME;
@@ -93,21 +97,23 @@ namespace librealsense
 
     protected:
 
-        bool has_metadata_ts(const platform::frame_object& fo) const
+        bool has_metadata_ts(std::shared_ptr<frame_interface> frame) const
         {
+            auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
             // Metadata support for a specific stream is immutable
             const bool has_md_ts = [&]{ std::lock_guard<std::recursive_mutex> lock(_mtx);
-                return ((fo.metadata != nullptr) && (fo.metadata_size >= platform::uvc_header_size) && ((byte*)fo.metadata)[0] >= platform::uvc_header_size);
+                return ((f->additional_data.metadata_blob.data() != nullptr) && (f->additional_data.metadata_size >= platform::uvc_header_size) && ((byte*)f->additional_data.metadata_blob.data())[0] >= platform::uvc_header_size);
             }();
 
             return has_md_ts;
         }
 
-        bool has_metadata_fc(const platform::frame_object& fo) const
+        bool has_metadata_fc(std::shared_ptr<frame_interface> frame) const
         {
+            auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
             // Metadata support for a specific stream is immutable
             const bool has_md_frame_counter = [&] { std::lock_guard<std::recursive_mutex> lock(_mtx);
-            return ((fo.metadata != nullptr) && (fo.metadata_size > platform::uvc_header_size) && ((byte*)fo.metadata)[0] > platform::uvc_header_size);
+                return ((f->additional_data.metadata_blob.data() != nullptr) && (f->additional_data.metadata_size > platform::uvc_header_size) && ((byte*)f->additional_data.metadata_blob.data())[0] > platform::uvc_header_size);
             }();
 
             return has_md_frame_counter;
@@ -120,13 +126,13 @@ namespace librealsense
             reset();
         }
 
-        rs2_time_t get_frame_timestamp(const request_mapping& mode, const platform::frame_object& fo) override;
+        rs2_time_t get_frame_timestamp(std::shared_ptr<frame_interface> frame) override;
 
-        unsigned long long get_frame_counter(const request_mapping & mode, const platform::frame_object& fo) const override;
+        unsigned long long get_frame_counter(std::shared_ptr<frame_interface> frame) const override;
 
         void reset() override;
 
-        rs2_timestamp_domain get_frame_timestamp_domain(const request_mapping & mode, const platform::frame_object& fo) const override;
+        rs2_timestamp_domain get_frame_timestamp_domain(std::shared_ptr<frame_interface> frame) const override;
     };
 
     class sr300_info : public device_info

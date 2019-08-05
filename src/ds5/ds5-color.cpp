@@ -19,6 +19,9 @@
 #include "global_timestamp_reader.h"
 #include "environment.h"
 
+#include "proc/yuy2rgb.h"
+#include "functional"
+
 namespace librealsense
 {
     ds5_color::ds5_color(std::shared_ptr<context> ctx,
@@ -51,8 +54,6 @@ namespace librealsense
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
         auto color_ep = std::make_shared<ds5_color_sensor>(this, backend.create_uvc_device(color_devices_info.front()),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)));
-
-        _color_device_idx = add_sensor(color_ep);
 
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         color_ep->register_pixel_format(pf_yuyv);
@@ -145,6 +146,11 @@ namespace librealsense
             if ((roi_sensor = dynamic_cast<roi_sensor_interface*>(color_ep.get())))
                 roi_sensor->set_roi_method(std::make_shared<ds5_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
         }
+
+        auto smart_color_ep = std::make_shared<synthethic_sensor>("Smart RGB Sensor", color_ep, this);
+        
+        smart_color_ep->register_processing_block(RS2_FORMAT_YUYV, RS2_FORMAT_RGB8, RS2_STREAM_COLOR, []() { return std::make_shared<yuy2rgb>(); });
+        _color_device_idx = add_sensor(smart_color_ep);
 
         return color_ep;
     }

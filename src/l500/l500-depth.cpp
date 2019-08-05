@@ -176,13 +176,14 @@ namespace librealsense
         return 1/znorm* MM_TO_METER;
     }
 
-    rs2_time_t l500_timestamp_reader_from_metadata::get_frame_timestamp(const request_mapping& mode, const platform::frame_object& fo)
+    rs2_time_t l500_timestamp_reader_from_metadata::get_frame_timestamp(std::shared_ptr<frame_interface> frame)
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
-        if (has_metadata_ts(fo))
+        auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (has_metadata_ts(frame))
         {
-            auto md = (librealsense::metadata_raw*)(fo.metadata);
+            auto md = (librealsense::metadata_raw*)(f->additional_data.metadata_blob.data());
             return (double)(md->header.timestamp)*TIMESTAMP_USEC_TO_MSEC;
         }
         else
@@ -190,26 +191,27 @@ namespace librealsense
             if (!one_time_note)
             {
                 LOG_WARNING("UVC metadata payloads are not available for stream "
-                    << std::hex << mode.pf->fourcc << std::dec << (mode.profile.format)
+                    //<< std::hex << mode.pf->fourcc << std::dec << (mode.profile.format)
                     << ". Please refer to installation chapter for details.");
                 one_time_note = true;
             }
-            return _backup_timestamp_reader->get_frame_timestamp(mode, fo);
+            return _backup_timestamp_reader->get_frame_timestamp(frame);
         }
     }
 
-    unsigned long long l500_timestamp_reader_from_metadata::get_frame_counter(const request_mapping & mode, const platform::frame_object& fo) const
+    unsigned long long l500_timestamp_reader_from_metadata::get_frame_counter(std::shared_ptr<frame_interface> frame) const
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
-        if (has_metadata_fc(fo))
+        auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (has_metadata_fc(frame))
         {
-            auto md = (byte*)(fo.metadata);
+            auto md = (byte*)(f->additional_data.metadata_blob.data());
             // WA until we will have the struct of metadata
             return ((int*)md)[7];
         }
 
-        return _backup_timestamp_reader->get_frame_counter(mode, fo);
+        return _backup_timestamp_reader->get_frame_counter(frame);
     }
 
     void l500_timestamp_reader_from_metadata::reset()
@@ -220,11 +222,11 @@ namespace librealsense
         ts_wrap.reset();
     }
 
-    rs2_timestamp_domain l500_timestamp_reader_from_metadata::get_frame_timestamp_domain(const request_mapping & mode, const platform::frame_object& fo) const
+    rs2_timestamp_domain l500_timestamp_reader_from_metadata::get_frame_timestamp_domain(std::shared_ptr<frame_interface> frame) const
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
-        return (has_metadata_ts(fo)) ? RS2_TIMESTAMP_DOMAIN_HARDWARE_CLOCK : _backup_timestamp_reader->get_frame_timestamp_domain(mode, fo);
+        return (has_metadata_ts(frame)) ? RS2_TIMESTAMP_DOMAIN_HARDWARE_CLOCK : _backup_timestamp_reader->get_frame_timestamp_domain(frame);
     }
 
     processing_blocks l500_depth_sensor::get_l500_recommended_proccesing_blocks()
