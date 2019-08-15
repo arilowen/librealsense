@@ -29,7 +29,7 @@ namespace librealsense
         if ((_fw_version >= firmware_version("5.5.8.0")) && (pid != RS_USB2_PID))
         {
             get_depth_sensor().register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE,
-                std::make_shared<uvc_xu_option<uint8_t>>(get_depth_sensor(),
+                std::make_shared<uvc_xu_option<uint8_t>>(get_depth_sensor().get_raw_sensor(),
                                                          depth_xu,
                                                          DS5_ENABLE_AUTO_WHITE_BALANCE,
                                                          "Enable Auto White Balance"));

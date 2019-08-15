@@ -44,7 +44,7 @@ namespace librealsense
         auto color_ep = create_color_device(ctx, color_devs_info);
     }
 
-    std::shared_ptr<uvc_sensor> ds5_color::create_color_device(std::shared_ptr<context> ctx,
+    std::shared_ptr<synthetic_sensor> ds5_color::create_color_device(std::shared_ptr<context> ctx,
         const std::vector<platform::uvc_device_info>& color_devices_info)
     {
         auto&& backend = ctx->get_backend();
@@ -52,8 +52,8 @@ namespace librealsense
         std::unique_ptr<frame_timestamp_reader> ds5_timestamp_reader_metadata(new ds5_timestamp_reader_from_metadata(std::move(ds5_timestamp_reader_backup)));
 
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto color_ep = std::make_shared<ds5_color_sensor>(this, backend.create_uvc_device(color_devices_info.front()),
-            std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)));
+        auto color_ep = std::make_shared<uvc_sensor>("RGB Sensor", backend.create_uvc_device(color_devices_info.front()),
+            std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
 
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         color_ep->register_pixel_format(pf_yuyv);
@@ -147,12 +147,11 @@ namespace librealsense
                 roi_sensor->set_roi_method(std::make_shared<ds5_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
         }
 
-        auto smart_color_ep = std::make_shared<synthethic_sensor>("Smart RGB Sensor", color_ep, this);
-        
+        auto smart_color_ep = std::make_shared<synthetic_sensor>("Smart RGB Sensor", color_ep, this);
         smart_color_ep->register_processing_block(RS2_FORMAT_YUYV, RS2_FORMAT_RGB8, RS2_STREAM_COLOR, []() { return std::make_shared<yuy2rgb>(); });
-        _color_device_idx = add_sensor(smart_color_ep);
+        _color_device_idx = add_sensor(color_ep);
 
-        return color_ep;
+        return smart_color_ep;
     }
 
     rs2_intrinsics ds5_color_sensor::get_intrinsics(const stream_profile& profile) const
@@ -166,7 +165,7 @@ namespace librealsense
     stream_profiles ds5_color_sensor::init_stream_profiles()
     {
         auto lock = environment::get_instance().get_extrinsics_graph().lock();
-        auto results = uvc_sensor::init_stream_profiles();
+        auto results = synthetic_sensor::init_stream_profiles();
 
         for (auto p : results)
         {

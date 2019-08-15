@@ -80,6 +80,7 @@ namespace librealsense
         {
             return {};
         }
+
     protected:
         void raise_on_before_streaming_changes(bool streaming);
         void set_active_streams(const stream_profiles& requests);
@@ -475,14 +476,18 @@ namespace librealsense
         //int index = 0;
     };
 
-    class synthethic_sensor :
+    class synthetic_sensor :
         public sensor_base
     {
     public:
-        explicit synthethic_sensor(std::string name,
+        explicit synthetic_sensor(std::string name,
             std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
             device* device);
-        ~synthethic_sensor() override;
+        ~synthetic_sensor() override;
+
+        std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
+
+        option& get_option(rs2_option id) const override;
 
         stream_profiles init_stream_profiles() override;
 
@@ -499,7 +504,7 @@ namespace librealsense
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);
 
-        std::shared_ptr<sensor_base> _sensor;
+        std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<processing_block_factory> _pb_factories;
         std::map<rs2_format, std::shared_ptr<processing_block>> _stream_to_processing_block;
     };

@@ -369,7 +369,7 @@ namespace librealsense
             auto profile = std::make_shared<video_stream_profile>(p);
             profile->set_dims(p.width, p.height);
             profile->set_stream_type(fourcc_to_rs2_stream(p.format));
-            //profile->set_stream_index(0);
+            profile->set_stream_index(0);
             profile->set_format(fourcc_to_rs2_format(p.format));
             profile->set_framerate(p.fps);
             profiles.insert(profile);
@@ -1610,21 +1610,26 @@ namespace librealsense
 
     //}
 
-    synthethic_sensor::synthethic_sensor(std::string name, std::shared_ptr<sensor_base> sensor,
-        device* device) : sensor_base(name, device, (recommended_proccesing_blocks_interface*)this), _sensor(std::move(sensor))
+    synthetic_sensor::synthetic_sensor(std::string name, std::shared_ptr<sensor_base> sensor,
+        device* device) : sensor_base(name, device, (recommended_proccesing_blocks_interface*)this), _raw_sensor(std::move(sensor))
     {
 
     }
 
-    synthethic_sensor::~synthethic_sensor()
+    synthetic_sensor::~synthetic_sensor()
     {
 
     }
 
-    stream_profiles synthethic_sensor::init_stream_profiles()
+    option & synthetic_sensor::get_option(rs2_option id) const
+    {
+        return _raw_sensor->get_option(id);
+    }
+
+    stream_profiles synthetic_sensor::init_stream_profiles()
     {
         // raw sensor profiles
-        auto profiles = _sensor->init_stream_profiles();
+        auto profiles = _raw_sensor->init_stream_profiles();
         
         // all of the supported formats from the device which are compatible with pbf
         std::unordered_set<std::shared_ptr<stream_profile_interface>> advance_profiles;
@@ -1641,7 +1646,7 @@ namespace librealsense
                     profile_cpy->set_format(pbf.get_target_format());
 
                     profile_cpy->set_dims(video_profile->get_width(), video_profile->get_height());
-                    //profile->set_stream_index(0);
+                    profile->set_stream_index(0);
                     profile_cpy->set_framerate(video_profile->get_framerate());
                     advance_profiles.insert(profile_cpy);
                 }
@@ -1653,7 +1658,7 @@ namespace librealsense
         return profiles;
     }
 
-    stream_profiles synthethic_sensor::resolve_requests(const stream_profiles& requests)
+    stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
     {
         for (auto&& req : requests)
         {
@@ -1669,7 +1674,7 @@ namespace librealsense
         return requests;
     }
 
-    void synthethic_sensor::open(const stream_profiles& requests)
+    void synthetic_sensor::open(const stream_profiles& requests)
     {
         for (auto req : requests)
         {
@@ -1684,49 +1689,63 @@ namespace librealsense
         }
 
         auto resolved_req = resolve_requests(requests);
-        _sensor->open(requests);
+        _raw_sensor->open(requests);
     }
 
-    void synthethic_sensor::close()
+    void synthetic_sensor::close()
     {
-        _sensor->close();
+        _raw_sensor->close();
         // TODO - Ariel - reset stream to processing block map
     }
 
-    void synthethic_sensor::start(frame_callback_ptr callback)
+    void synthetic_sensor::start(frame_callback_ptr callback)
     {
         //std::mutex frames_lock;
+
+        auto output_frame = [&, callback](frame_holder f) {
+            f.frame->acquire();
+            callback->on_frame((rs2_frame*)f.frame);
+        };
+
+        frame_callback_ptr output_cb = {
+            new internal_frame_callback<decltype(output_frame)>(output_frame),
+            [](rs2_frame_callback* p) { /*p->release(); */}
+        };
+
+        for (auto&& pb_entry : _stream_to_processing_block)
+        {
+            pb_entry.second->set_output_callback(output_cb);
+        }
 
         auto process_frame = [&, callback](frame_holder f) {
             //std::lock_guard<std::mutex> lock(frames_lock);
             for (auto&& pb_entry : _stream_to_processing_block)
             {
                 // TODO - Ariel - handle multiple requests
-                //frame_holder f_cpy(f.frame);
                 auto&& pb = pb_entry.second;
                 auto&& requested_fmt = pb_entry.first;
 
-                pb->invoke(f.frame);
-                callback->on_frame((rs2_frame*)f.frame);
+                pb->invoke(std::move(f));
             }
         };
 
         frame_callback_ptr process_cb = {
             new internal_frame_callback<decltype(process_frame)>(process_frame),
-            [](rs2_frame_callback* p) { /*p->release();*/ }
+            [](rs2_frame_callback* p) {/* p->release();*/ }
         };
         // call the processing block on the frame
         
-        _sensor->start(process_cb);
+        _raw_sensor->start(process_cb);
+
         //_sensor->start(callback);
     }
 
-    void synthethic_sensor::stop()
+    void synthetic_sensor::stop()
     {
-        _sensor->stop();
+        _raw_sensor->stop();
     }
 
-    void synthethic_sensor::register_processing_block(rs2_format from, rs2_format to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func)
+    void synthetic_sensor::register_processing_block(rs2_format from, rs2_format to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func)
     {
         processing_block_factory pbf(from, to, stream, generate_func);
         _pb_factories.push_back(pbf);

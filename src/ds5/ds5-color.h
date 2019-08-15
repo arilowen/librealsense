@@ -11,7 +11,7 @@ namespace librealsense
     class ds5_color : public virtual ds5_device
     {
     public:
-        std::shared_ptr<uvc_sensor> create_color_device(std::shared_ptr<context> ctx,
+        std::shared_ptr<synthetic_sensor> create_color_device(std::shared_ptr<context> ctx,
                                                         const std::vector<platform::uvc_device_info>& all_device_infos);
 
         ds5_color(std::shared_ptr<context> ctx,
@@ -31,15 +31,14 @@ namespace librealsense
         std::shared_ptr<lazy<rs2_extrinsics>> _color_extrinsic;
     };
 
-    class ds5_color_sensor : public uvc_sensor,
+    class ds5_color_sensor : public synthetic_sensor,
                              public video_sensor_interface,
                              public roi_sensor_base
     {
     public:
         explicit ds5_color_sensor(ds5_color* owner,
-            std::shared_ptr<platform::uvc_device> uvc_device,
-            std::unique_ptr<frame_timestamp_reader> timestamp_reader)
-            : uvc_sensor("RGB Camera", uvc_device, move(timestamp_reader), owner), _owner(owner)
+            std::shared_ptr<uvc_sensor> uvc_sensor)
+            : synthetic_sensor("Smart RGB Sensor", uvc_sensor, owner), _owner(owner)
         {}
 
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;
