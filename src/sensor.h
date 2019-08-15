@@ -489,6 +489,10 @@ namespace librealsense
 
         option& get_option(rs2_option id) const override;
 
+        void register_option(rs2_option id, std::shared_ptr<option> option);
+
+        void unregister_option(rs2_option id);
+
         stream_profiles init_stream_profiles() override;
 
         void open(const stream_profiles& requests) override;

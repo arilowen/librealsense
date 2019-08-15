@@ -1626,6 +1626,16 @@ namespace librealsense
         return _raw_sensor->get_option(id);
     }
 
+    void synthetic_sensor::register_option(rs2_option id, std::shared_ptr<option> option)
+    {
+        _raw_sensor->register_option(id, option);
+    }
+
+    void synthetic_sensor::unregister_option(rs2_option id)
+    {
+        _raw_sensor->unregister_option(id);
+    }
+
     stream_profiles synthetic_sensor::init_stream_profiles()
     {
         // raw sensor profiles

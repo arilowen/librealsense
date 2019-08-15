@@ -17,13 +17,14 @@ namespace librealsense
         _rgb_exposure_gain_bind(false),
         _amplitude_factor_support(false)
     {
+        auto& raw_sensor = dynamic_cast<uvc_sensor&>(*(_depth_sensor.get_raw_sensor()));
         _enabled = [this]() {
             auto results = send_receive(encode_command(ds::fw_cmd::UAMG));
             assert_no_error(ds::fw_cmd::UAMG, results);
             return results[4] > 0;
         };
         _preset_opt = std::make_shared<advanced_mode_preset_option>(*this,
-            _depth_sensor,
+            raw_sensor,
             option_range{ 0,
             RS2_RS400_VISUAL_PRESET_COUNT - 1,
             1,

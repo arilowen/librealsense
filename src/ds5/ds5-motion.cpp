@@ -93,7 +93,7 @@ namespace librealsense
         const ds5_motion* _owner;
     };
 
-    class ds5_fisheye_sensor : public uvc_sensor, public video_sensor_interface, public roi_sensor_base
+    class ds5_fisheye_sensor : public uvc_sensor, public video_sensor_interface, public roi_sensor_base // TODO - Ariel change to synthetic sensor
     {
     public:
         explicit ds5_fisheye_sensor(ds5_motion* owner, std::shared_ptr<platform::uvc_device> uvc_device,

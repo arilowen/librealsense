@@ -39,6 +39,12 @@ namespace librealsense
             return dynamic_cast<synthetic_sensor&>(get_sensor(_depth_device_idx));
         }
 
+        uvc_sensor& get_raw_depth_sensor()
+        {
+            synthetic_sensor& depth_sensor = get_depth_sensor();
+            return dynamic_cast<uvc_sensor&>(*depth_sensor.get_raw_sensor());
+        }
+
         ds5_device(std::shared_ptr<context> ctx,
                    const platform::backend_device_group& group);
 
