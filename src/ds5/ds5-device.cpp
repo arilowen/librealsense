@@ -734,16 +734,19 @@ namespace librealsense
 
         if (advanced_mode && _fw_version >= firmware_version("5.6.3.0"))
         {
-            auto depth_scale = std::make_shared<depth_scale_option>(*_hw_monitor);
-            auto depth_sensor = As<ds5_depth_sensor, synthetic_sensor>(&get_depth_sensor());
-            assert(depth_sensor);
+            //auto depth_scale = std::make_shared<depth_scale_option>(*_hw_monitor);
+            //auto& ds = get_depth_sensor();
+            //std::shared_ptr<synthetic_sensor> dsp(&ds);
+            //auto& dss = std::dynamic_pointer_cast<ds5_depth_sensor>(dsp);
+            //auto depth_sensor = As<ds5_depth_sensor, synthetic_sensor>(&get_depth_sensor());
+            ////assert(depth_sensor);
 
-            depth_scale->add_observer([depth_sensor](float val)
-            {
-                depth_sensor->set_depth_scale(val);
-            });
+            //depth_scale->add_observer([depth_sensor](float val)
+            //{
+            //    //depth_sensor->set_depth_scale(val); TODO - Ariel - fix this
+            //});
 
-            raw_depth_sensor.register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
+            //raw_depth_sensor.register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
         }
         else
             raw_depth_sensor.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",

@@ -493,7 +493,7 @@ namespace librealsense
 
         void unregister_option(rs2_option id);
 
-        stream_profiles init_stream_profiles() override;
+        virtual stream_profiles init_stream_profiles() override;
 
         void open(const stream_profiles& requests) override;
 

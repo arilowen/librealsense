@@ -129,7 +129,8 @@ namespace librealsense
     void sensor_base::assign_stream(const std::shared_ptr<stream_interface>& stream, std::shared_ptr<stream_profile_interface> target) const
     {
         environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*stream, *target);
-        target->set_unique_id(stream->get_unique_id());
+        auto uid = stream->get_unique_id();
+        target->set_unique_id(uid);
     }
 
     stream_profiles sensor_base::resolve_requests(stream_profiles requests)

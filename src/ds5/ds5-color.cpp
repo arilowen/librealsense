@@ -147,9 +147,9 @@ namespace librealsense
                 roi_sensor->set_roi_method(std::make_shared<ds5_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
         }
 
-        auto smart_color_ep = std::make_shared<synthetic_sensor>("Smart RGB Sensor", color_ep, this);
+        auto smart_color_ep = std::make_shared<ds5_color_sensor>(this, color_ep);
         smart_color_ep->register_processing_block(RS2_FORMAT_YUYV, RS2_FORMAT_RGB8, RS2_STREAM_COLOR, []() { return std::make_shared<yuy2rgb>(); });
-        _color_device_idx = add_sensor(color_ep);
+        _color_device_idx = add_sensor(smart_color_ep);
 
         return smart_color_ep;
     }
