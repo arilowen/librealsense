@@ -1648,7 +1648,13 @@ namespace librealsense
         {
             for (auto&& pbf : _pb_factories)
             {
-                if (pbf.get_source_format() == profile->get_format())
+                auto raw_sen_format = profile->get_format();
+                // duplicated formats. these profiles were already defined by the raw sensor.
+                if (pbf.get_target_format() == raw_sen_format)
+                    continue;
+
+                // add target formats which their source is supported by the sensor.
+                if (pbf.get_source_format() == raw_sen_format)
                 {
                     auto video_profile = std::dynamic_pointer_cast<video_stream_profile>(profile);
                     auto profile_cpy = std::make_shared<video_stream_profile>(video_profile->get_backend_profile());
@@ -1725,7 +1731,11 @@ namespace librealsense
 
         for (auto&& pb_entry : _stream_to_processing_block)
         {
-            pb_entry.second->set_output_callback(output_cb);
+            auto&& pb = pb_entry.second;
+            if (pb)
+            {
+                pb_entry.second->set_output_callback(output_cb);
+            }
         }
 
         auto process_frame = [&, callback](frame_holder f) {
@@ -1736,7 +1746,15 @@ namespace librealsense
                 auto&& pb = pb_entry.second;
                 auto&& requested_fmt = pb_entry.first;
 
-                pb->invoke(std::move(f));
+                if (pb)
+                {
+                    pb->invoke(std::move(f));
+                }
+                else
+                {
+                    f.frame->acquire();
+                    callback->on_frame((rs2_frame*)f.frame);
+                }
             }
         };
 
@@ -1748,7 +1766,7 @@ namespace librealsense
         
         _raw_sensor->start(process_cb);
 
-        //_sensor->start(callback);
+        //_raw_sensor->start(callback);
     }
 
     void synthetic_sensor::stop()

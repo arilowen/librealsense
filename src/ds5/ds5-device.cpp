@@ -532,7 +532,7 @@ namespace librealsense
         depth_ep->register_pixel_format(pf_yuyv); // Left Only
 
         auto smart_depth_ep = std::make_shared<synthetic_sensor>("Smart Depth Sensor", depth_ep, this);
-
+        smart_depth_ep->register_processing_block(RS2_FORMAT_Z16, RS2_FORMAT_Z16, RS2_STREAM_DEPTH, []() { return nullptr; });
         /*depth_ep->register_pixel_format({
             { RS2_FORMAT_YUYV },
             { RS2_FORMAT_RGBA8 },
