@@ -10,6 +10,7 @@
 #include "core/roi.h"
 #include "core/options.h"
 #include "source.h"
+#include "core/extension.h"
 
 #include <chrono>
 #include <memory>
@@ -118,6 +119,7 @@ namespace librealsense
 
         const std::map<uint32_t, rs2_format> _fourcc_to_rs2_format = { {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
             {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
+            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
             {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16} };
         //const std::map<rs2_format, uint32_t> _rs2_format_to_fourcc = { {RS2_FORMAT_YUYV, rs_fourcc('Y','U','Y','2')},
         //    {RS2_FORMAT_RGB8, rs_fourcc('Y','U','Y','2')},
@@ -128,7 +130,8 @@ namespace librealsense
     //{RS2_FORMAT_Y8, RS2_FORMAT_Y8},
     //{RS2_FORMAT_Z16, RS2_FORMAT_Z16} };
         const std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream = { {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
-        {rs_fourcc('G','R','E','Y'), RS2_STREAM_DEPTH}, 
+        {rs_fourcc('G','R','E','Y'), RS2_STREAM_DEPTH},
+        {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
         {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH} };
     };
 
@@ -461,23 +464,27 @@ namespace librealsense
     class processing_block_factory
     {
     public:
-        processing_block_factory(rs2_format from, rs2_format to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func);
+        processing_block_factory(std::vector<rs2_format> from,
+            std::vector<rs2_format> to,
+            rs2_stream stream,
+            std::function<std::shared_ptr<processing_block>(void)> generate_func);
         
         std::function<std::shared_ptr<processing_block>(void)> generate_processing_block; // TODO - Ariel - maybe lazy?
         
-        rs2_format get_source_format() { return _source_format; }
-        rs2_format get_target_format() { return _target_format; }
+        std::vector<rs2_format> get_source_format() { return _source_format; }
+        std::vector<rs2_format> get_target_format() { return _target_format; }
         rs2_stream get_target_stream() { return _target_stream; }
 
     protected:
-        rs2_format _source_format;
-        rs2_format _target_format;
+        std::vector<rs2_format> _source_format;
+        std::vector<rs2_format> _target_format;
         rs2_stream _target_stream;
         //int index = 0;
     };
 
     class synthetic_sensor :
-        public sensor_base
+        public sensor_base,
+        public extendable_interface
     {
     public:
         explicit synthetic_sensor(std::string name,
@@ -503,10 +510,16 @@ namespace librealsense
 
         void stop() override;
 
-        void register_processing_block(rs2_format from, rs2_format to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func);
+        void register_processing_block(std::vector<rs2_format> from,
+            std::vector<rs2_format> to,
+            rs2_stream stream,
+            std::function<std::shared_ptr<processing_block>(void)> generate_func);
+
+        bool extend_to(rs2_extension extension_type, void** ext);
 
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);
+        template <rs2_extension E, typename P> bool extend_to_aux(P* p, void** ext);
 
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<processing_block_factory> _pb_factories;

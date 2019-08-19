@@ -1649,18 +1649,34 @@ namespace librealsense
             for (auto&& pbf : _pb_factories)
             {
                 auto raw_sen_format = profile->get_format();
+
                 // duplicated formats. these profiles were already defined by the raw sensor.
-                if (pbf.get_target_format() == raw_sen_format)
+                auto target_formats = pbf.get_target_format();
+                auto target_format_iter = std::find_if(target_formats.begin(),
+                    target_formats.end(),
+                    [&raw_sen_format](const rs2_format& fmt)
+                {
+                    return raw_sen_format == fmt;
+                });
+                if (target_format_iter != target_formats.end())
                     continue;
 
+                auto source_formats = pbf.get_source_format();
+                auto source_format_iter = std::find_if(source_formats.begin(),
+                    source_formats.end(),
+                    [&raw_sen_format](const rs2_format& fmt)
+                {
+                    return raw_sen_format == fmt;
+                });
+
                 // add target formats which their source is supported by the sensor.
-                if (pbf.get_source_format() == raw_sen_format)
+                if (source_format_iter != source_formats.end())
                 {
                     auto video_profile = std::dynamic_pointer_cast<video_stream_profile>(profile);
                     auto profile_cpy = std::make_shared<video_stream_profile>(video_profile->get_backend_profile());
 
                     profile_cpy->set_stream_type(pbf.get_target_stream());
-                    profile_cpy->set_format(pbf.get_target_format());
+                    profile_cpy->set_format(*source_format_iter);
 
                     profile_cpy->set_dims(video_profile->get_width(), video_profile->get_height());
                     profile->set_stream_index(0);
@@ -1677,7 +1693,7 @@ namespace librealsense
 
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
     {
-        for (auto&& req : requests)
+        /*for (auto&& req : requests)
         {
             for (auto&& pb : _pb_factories)
             {
@@ -1686,6 +1702,35 @@ namespace librealsense
                 if (target_fmt == req->get_format())
                     req->set_format(source_fmt);
             }
+        }*/
+
+        for (auto&& pb : _pb_factories)
+        {
+            auto requests_copy(requests);
+
+            auto&& source_fmts = pb.get_source_format();
+            auto target_fmts_cpy(pb.get_target_format());
+
+            // remove all the matching requests and processing targets formats (from duplicates)
+            for (auto&& req : requests_copy)
+            {
+                auto target_fmts_iter = std::find_if(target_fmts_cpy.begin(), target_fmts_cpy.end(), [&req](const rs2_format& fmt)
+                {
+                    return fmt == req->get_format();
+                });
+
+                if (target_fmts_iter == target_fmts_cpy.end())
+                {
+                    target_fmts_cpy.erase(target_fmts_iter);
+                }
+
+                // if we removed all of the formats from the processing block targets, then this is the requested source format.
+                if (target_fmts_cpy.empty())
+                {
+                    _stream_to_processing_block[req->get_format()] = pb.generate_processing_block();
+                    req->set_format(source_fmts[0]); // TODO - Ariel - add support for multiple sources
+                }
+            }
         }
 
         return requests;
@@ -1693,7 +1738,7 @@ namespace librealsense
 
     void synthetic_sensor::open(const stream_profiles& requests)
     {
-        for (auto req : requests)
+        /*for (auto req : requests)
         {
             for (auto&& pb : _pb_factories)
             {
@@ -1703,7 +1748,7 @@ namespace librealsense
                     _stream_to_processing_block[req_fmt] = pb.generate_processing_block();
                 }
             }
-        }
+        }*/
 
         auto resolved_req = resolve_requests(requests);
         _raw_sensor->open(requests);
@@ -1719,8 +1764,11 @@ namespace librealsense
     {
         //std::mutex frames_lock;
 
+        std::shared_ptr<stream_profile_interface> cached_profile;
+
         auto output_frame = [&, callback](frame_holder f) {
             f.frame->acquire();
+            f.frame->set_stream(cached_profile);
             callback->on_frame((rs2_frame*)f.frame);
         };
 
@@ -1740,6 +1788,10 @@ namespace librealsense
 
         auto process_frame = [&, callback](frame_holder f) {
             //std::lock_guard<std::mutex> lock(frames_lock);
+            
+            // cache profile data for post-processing re-definition
+            cached_profile = f.frame->get_stream();
+
             for (auto&& pb_entry : _stream_to_processing_block)
             {
                 // TODO - Ariel - handle multiple requests
@@ -1774,13 +1826,51 @@ namespace librealsense
         _raw_sensor->stop();
     }
 
-    void synthetic_sensor::register_processing_block(rs2_format from, rs2_format to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func)
+    void synthetic_sensor::register_processing_block(std::vector<rs2_format> from, std::vector<rs2_format> to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func)
     {
         processing_block_factory pbf(from, to, stream, generate_func);
         _pb_factories.push_back(pbf);
     }
 
-    processing_block_factory::processing_block_factory(rs2_format from, rs2_format to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
+    template <rs2_extension E, typename P>
+    bool synthetic_sensor::extend_to_aux(P* p, void** ext)
+    {
+        using EXT_TYPE = typename ExtensionToType<E>::type;
+        auto ptr = As<EXT_TYPE>(p);
+        if (!ptr)
+            return false;
+
+        *ext = ptr;
+        return true;
+    }
+
+    // TODO - Ariel - fix the extend_to func
+    bool synthetic_sensor::extend_to(rs2_extension extension_type, void** ext)
+    {
+        /**************************************************************************************
+         A record sensor wraps the live sensor, and should have the same functionalities.
+         To do that, the record sensor implements the extendable_interface and when the user tries to
+         treat the sensor as some extension, this function is called, and we return a pointer to the
+         live sensor's extension. If that extension is a recordable one, we also enable_recording for it.
+        **************************************************************************************/
+
+        switch (extension_type)
+        {
+        case RS2_EXTENSION_OPTIONS: // [[fallthrough]]
+        case RS2_EXTENSION_INFO:    // [[fallthrough]]
+            *ext = this;
+            return true;
+        case RS2_EXTENSION_DEPTH_SENSOR: return extend_to_aux<RS2_EXTENSION_DEPTH_SENSOR>(_raw_sensor.get(), ext);
+        case RS2_EXTENSION_DEPTH_STEREO_SENSOR: return extend_to_aux<RS2_EXTENSION_DEPTH_STEREO_SENSOR>(_raw_sensor.get(), ext);
+        case RS2_EXTENSION_POSE_SENSOR: return extend_to_aux<RS2_EXTENSION_POSE_SENSOR>(_raw_sensor.get(), ext);
+            //Other extensions are not expected to be extensions of a sensor
+        default:
+            LOG_WARNING("Extensions type is unhandled: " << get_string(extension_type));
+            return false;
+        }
+    }
+
+    processing_block_factory::processing_block_factory(std::vector<rs2_format> from, std::vector<rs2_format> to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
         _source_format(from), _target_format(to), _target_stream(stream), generate_processing_block(generate_func)
     {
     }

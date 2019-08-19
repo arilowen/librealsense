@@ -30,6 +30,7 @@
 #include "proc/hole-filling-filter.h"
 #include "../common/fw/firmware-version.h"
 #include "fw-update/fw-update-unsigned.h"
+#include "proc/y8i-to-y8y8.h"
 
 namespace librealsense
 {
@@ -532,7 +533,8 @@ namespace librealsense
         depth_ep->register_pixel_format(pf_yuyv); // Left Only
 
         auto smart_depth_ep = std::make_shared<synthetic_sensor>("Smart Depth Sensor", depth_ep, this);
-        smart_depth_ep->register_processing_block(RS2_FORMAT_Z16, RS2_FORMAT_Z16, RS2_STREAM_DEPTH, []() { return nullptr; });
+        smart_depth_ep->register_processing_block({ RS2_FORMAT_Z16 }, { RS2_FORMAT_Z16 }, RS2_STREAM_DEPTH, []() { return nullptr; });
+        smart_depth_ep->register_processing_block({ RS2_FORMAT_Y8I }, { RS2_FORMAT_Y8, RS2_FORMAT_Y8 }, RS2_STREAM_DEPTH, []() { return std::make_shared<y8i_to_y8y8>(); });
         /*depth_ep->register_pixel_format({
             { RS2_FORMAT_YUYV },
             { RS2_FORMAT_RGBA8 },

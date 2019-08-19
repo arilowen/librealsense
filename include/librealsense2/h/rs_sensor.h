@@ -78,6 +78,7 @@ typedef enum rs2_format
     RS2_FORMAT_DISPARITY32     , /**< 32-bit float-point disparity values. Depth->Disparity conversion : Disparity = Baseline*FocalLength/Depth */
     RS2_FORMAT_Y10BPACK        , /**< 16-bit per-pixel grayscale image unpacked from 10 bits per pixel packed ([8:8:8:8:2222]) grey-scale image. The data is unpacked to LSB and padded with 6 zero bits */
     RS2_FORMAT_DISTANCE        , /**< 32-bit float-point depth distance value.  */
+    RS2_FORMAT_Y8I             , /**< 8-bit per pixel interleaved. 8-bit left, 8-bit right.  */
     RS2_FORMAT_INZI            , /**< 32-bit infra-red image followed by depth data.  */
     RS2_FORMAT_INVI            , /**< 32-bit float-point depth distance value.  */
     RS2_FORMAT_COUNT             /**< Number of enumeration values. Not a valid input: intended to be used in for-loops. */

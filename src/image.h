@@ -15,6 +15,7 @@ namespace librealsense
     void unpack_yuy2_rgba8(byte * const d[], const byte * s, int w, int h);
     void unpack_yuy2_bgr8(byte * const d[], const byte * s, int w, int h);
     void unpack_yuy2_bgra8(byte * const d[], const byte * s, int w, int h);
+    void unpack_y8_y8_from_y8i(byte * const dest[], const byte * source, int width, int height);
 
     size_t           get_image_size                 (int width, int height, rs2_format format);
     int              get_image_bpp                  (rs2_format format);
