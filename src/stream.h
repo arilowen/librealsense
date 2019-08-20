@@ -121,6 +121,20 @@ namespace librealsense
             return res;
         }
 
+        std::shared_ptr<stream_profile_interface> deep_clone() const
+        {
+            auto res = std::make_shared<video_stream_profile>(get_backend_profile());
+            res->set_unique_id(get_unique_id());
+            res->set_dims(get_width(), get_height());
+            std::function<rs2_intrinsics()> int_func = _calc_intrinsics;
+            res->set_intrinsics([int_func]() { return int_func(); });
+            res->set_framerate(get_framerate());
+            res->set_stream_index(get_stream_index());
+            res->set_stream_type(get_stream_type());
+            environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*res, *this);
+            return res;
+        }
+
         bool operator==(const video_stream_profile& other) const
         {
             return get_height() == other.get_height() &&

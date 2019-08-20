@@ -464,27 +464,34 @@ namespace librealsense
     class processing_block_factory
     {
     public:
+        struct pbf_target
+        {
+            pbf_target(rs2_format fmt, int idx) : _fmt(fmt), _idx(idx) {};
+            rs2_format _fmt;
+            int _idx;
+        };
+
         processing_block_factory(std::vector<rs2_format> from,
-            std::vector<rs2_format> to,
+            std::vector<pbf_target> to,
             rs2_stream stream,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
         
         std::function<std::shared_ptr<processing_block>(void)> generate_processing_block; // TODO - Ariel - maybe lazy?
         
-        std::vector<rs2_format> get_source_format() { return _source_format; }
-        std::vector<rs2_format> get_target_format() { return _target_format; }
+        std::vector<rs2_format> get_source_formats() { return _source_formats; }
+        std::vector<pbf_target> get_target_formats() { return _target_formats; }
         rs2_stream get_target_stream() { return _target_stream; }
 
     protected:
-        std::vector<rs2_format> _source_format;
-        std::vector<rs2_format> _target_format;
+        std::vector<rs2_format> _source_formats;
+        std::vector<pbf_target> _target_formats;
         rs2_stream _target_stream;
         //int index = 0;
     };
 
     class synthetic_sensor :
-        public sensor_base,
-        public extendable_interface
+        public sensor_base
+        //public extendable_interface
     {
     public:
         explicit synthetic_sensor(std::string name,
@@ -511,15 +518,15 @@ namespace librealsense
         void stop() override;
 
         void register_processing_block(std::vector<rs2_format> from,
-            std::vector<rs2_format> to,
+            std::vector<processing_block_factory::pbf_target> to,
             rs2_stream stream,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
-        bool extend_to(rs2_extension extension_type, void** ext);
+        //bool extend_to(rs2_extension extension_type, void** ext);
 
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);
-        template <rs2_extension E, typename P> bool extend_to_aux(P* p, void** ext);
+        //template <rs2_extension E, typename P> bool extend_to_aux(P* p, void** ext);
 
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<processing_block_factory> _pb_factories;
