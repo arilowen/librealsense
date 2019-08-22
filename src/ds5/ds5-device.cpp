@@ -540,33 +540,26 @@ namespace librealsense
             RS2_STREAM_DEPTH,
             []() { return nullptr; }
         );
-        //smart_depth_ep->register_processing_block(
-        //    { RS2_FORMAT_Y8 },
-        //    { {RS2_FORMAT_Y8, 1} },
-        //    RS2_STREAM_INFRARED,
-        //    []() { return nullptr; }
-        //);
         smart_depth_ep->register_processing_block(
-            { RS2_FORMAT_Z16 },
-            { {RS2_FORMAT_Z16, 0} },
-            RS2_STREAM_DEPTH,
+            { RS2_FORMAT_Y8 },
+            { {RS2_FORMAT_Y8, 1} },
+            RS2_STREAM_INFRARED,
             []() { return nullptr; }
         );
+        //smart_depth_ep->register_processing_block(
+        //    { RS2_FORMAT_Z16, RS2_FORMAT_Y8 },
+        //    { {RS2_FORMAT_ANY, 1} },
+        //    RS2_STREAM_DEPTH,
+        //    []() { return nullptr; }
+        //);
+
         smart_depth_ep->register_processing_block(
             { RS2_FORMAT_Y8I },
             { {RS2_FORMAT_Y8, 1} , {RS2_FORMAT_Y8, 2} },
             RS2_STREAM_INFRARED,
             []() { return std::make_shared<y8i_to_y8y8>(); 
         });
-        /*depth_ep->register_pixel_format({
-            { RS2_FORMAT_YUYV },
-            { RS2_FORMAT_RGBA8 },
-            []() {
-                return std::make_shared<yuy2grb>(RS2_FORMAT_RGBA8);
-            }
-            });
 
-        depth_ep->register_pixel_format<yuy2grb>();*/
 
         return smart_depth_ep;
     }

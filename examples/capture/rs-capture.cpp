@@ -13,7 +13,7 @@ int main(int argc, char * argv[]) try
     window app(1280, 720, "RealSense Capture Example");
 
     //// Declare depth colorizer for pretty visualization of depth data
-    //rs2::colorizer color_map;
+    rs2::colorizer color_map;
     //// Declare rates printer for showing streaming rates of the enabled streams.
     //rs2::rates_printer printer;
 
@@ -26,9 +26,9 @@ int main(int argc, char * argv[]) try
     //pipe.start();
     auto ctx = rs2::context();
     auto sensors = ctx.query_all_sensors();
-    auto sen = sensors[1];
+    auto sen = sensors[0];
     auto sps = sen.get_stream_profiles();
-    sen.open(sps[63]);
+    sen.open(sps[3]);
     rs2::frame data;
     sen.start([&data](rs2::frame f) 
     { 
@@ -42,7 +42,8 @@ int main(int argc, char * argv[]) try
         //rs2::frameset data = pipe.wait_for_frames().    // Wait for next set of frames from the camera
         //                     apply_filter(printer).     // Print each enabled stream frame rate
         //                     apply_filter(color_map);   // Find and colorize the depth data
-
+        if (data)
+            data = color_map.process(data);
         // The show method, when applied on frameset, break it to frames and upload each frame into a gl textures
         // Each texture is displayed on different viewport according to it's stream unique id
         app.show(data);

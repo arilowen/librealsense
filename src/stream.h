@@ -131,6 +131,7 @@ namespace librealsense
             res->set_framerate(get_framerate());
             res->set_stream_index(get_stream_index());
             res->set_stream_type(get_stream_type());
+            res->set_format(get_format());
             environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*res, *this);
             return res;
         }

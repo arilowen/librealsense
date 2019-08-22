@@ -1649,7 +1649,7 @@ namespace librealsense
     {
         stream_profiles result_profiles;
         //profiles = raw.get_profiles();
-        auto&& profiles = _raw_sensor->get_stream_profiles();
+        auto profiles = _raw_sensor->get_stream_profiles();
         //
         //foreach pbf:
         for (auto&& pbf : _pb_factories)
@@ -1662,15 +1662,30 @@ namespace librealsense
             for (auto&& source_fmt : sources)
             {
                 // add profiles that are supported by the device
-                for (auto&& profile : profiles)
+                for (auto profile : profiles)
                 {
+                    auto p = std::dynamic_pointer_cast<video_stream_profile>(profile);
                     if (profile->get_format() == source_fmt)
                     {
+                        // disregard duplicated
+                        auto duplicate_it = std::find_if(result_profiles.begin(), result_profiles.end(), [&p](std::shared_ptr<stream_profile_interface> spi)
+                        {
+                            auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
+                            return (sp->get_format() == p->get_format() &&
+                                //sp->get_unique_id() == p->get_unique_id() && // not good - example y8i uid = 2 y8 uid = 1 -> will create y8 again.
+                                //sp->get_stream_index() == p->get_stream_index() &&
+                                //sp->get_stream_type() == p->get_stream_type() &&
+                                sp->get_height() == p->get_height() &&
+                                sp->get_width() == p->get_width());
+                        });
+                        if (duplicate_it != result_profiles.end())
+                            continue;
+
                         for (auto&& target_fmt : targets)
                         {
                             auto vsp = As<video_stream_profile, stream_profile_interface>(profile);
                             auto cloned_profile = std::make_shared<video_stream_profile>(vsp->get_backend_profile());
-                            cloned_profile->set_unique_id(profile->get_unique_id());
+                            //cloned_profile->set_unique_id(profile->get_unique_id());
                             cloned_profile->set_dims(vsp->get_width(), vsp->get_height());
                             cloned_profile->set_format(target_fmt._fmt);
                             cloned_profile->set_stream_index(target_fmt._idx);
@@ -1694,6 +1709,7 @@ namespace librealsense
             //                            O.feild = p.feild
             //                    add O
         }
+        //_owner->tag_profiles(result_profiles);
         return result_profiles;
         
     }
@@ -1710,6 +1726,13 @@ namespace librealsense
                     req->set_format(source_fmt);
             }
         }*/
+
+        // sort factories by descending size of target formats.
+        // best match between maximum requests and factory targets must be handled first.
+        std::sort(_pb_factories.begin(), _pb_factories.end(), [](processing_block_factory& pba, processing_block_factory& pbb) 
+        {
+            return pba.get_target_formats().size() > pbb.get_target_formats().size();
+        });
 
         stream_profiles unhandled_reqs(requests);
         stream_profiles resolved_req;
@@ -1747,7 +1770,7 @@ namespace librealsense
                 }
 
                 // if we removed all of the formats from the processing block targets, then this is the requested source format.
-                if (target_fmts_cpy.empty())
+                if (target_fmts_cpy.empty() || unhandled_reqs.empty())
                 {
                     _stream_to_processing_block[req->get_format()] = pb.generate_processing_block();
                     req->set_format(source_fmts[0]); // TODO - Ariel - add support for multiple sources
@@ -1789,11 +1812,11 @@ namespace librealsense
     {
         //std::mutex frames_lock;
 
-        stream_profile_interface* cached_profile;
+        //std::shared_ptr<stream_profile_interface> cached_profile;
 
         auto output_frame = [&, callback](frame_holder f) {
             f.frame->acquire();
-            //f.frame->set_stream(std::shared_ptr<stream_profile_interface>(cached_profile)); // TODO - Ariel - Fix this and remove from rs.cpp workaround
+            //f.frame->set_stream(cached_profile); // TODO - Ariel - Fix this and remove from rs.cpp workaround -- problem, Y8I before process, Y8 & Y8 after process
             callback->on_frame((rs2_frame*)f.frame);
         };
 
@@ -1815,7 +1838,7 @@ namespace librealsense
             //std::lock_guard<std::mutex> lock(frames_lock);
             
             // cache profile data for post-processing re-definition
-            //cached_profile = f.frame->get_stream().get();
+            //cached_profile = f.frame->get_stream()->clone();
 
             for (auto&& pb_entry : _stream_to_processing_block)
             {
