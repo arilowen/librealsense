@@ -1485,9 +1485,13 @@ namespace librealsense
             return fps;
     }
 
-    uvc_sensor::uvc_sensor(std::string name, std::shared_ptr<platform::uvc_device> uvc_device, std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev)
+    uvc_sensor::uvc_sensor(std::string name, 
+        std::shared_ptr<platform::uvc_device> uvc_device,
+        std::unique_ptr<frame_timestamp_reader> timestamp_reader,
+        device* dev)
        :   sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
           _device(move(uvc_device)),
+          _sensor_owner(this),
           _user_count(0),
           _timestamp_reader(std::move(timestamp_reader))
     {
@@ -1618,7 +1622,8 @@ namespace librealsense
     synthetic_sensor::synthetic_sensor(std::string name, std::shared_ptr<sensor_base> sensor,
         device* device) : sensor_base(name, device, (recommended_proccesing_blocks_interface*)this), _raw_sensor(std::move(sensor))
     {
-
+        auto raw_sensor = std::dynamic_pointer_cast<uvc_sensor>(_raw_sensor);
+        raw_sensor->set_owner_sensor(this);
     }
 
     synthetic_sensor::~synthetic_sensor()
@@ -1786,18 +1791,7 @@ namespace librealsense
 
     void synthetic_sensor::open(const stream_profiles& requests)
     {
-        /*for (auto req : requests)
-        {
-            for (auto&& pb : _pb_factories)
-            {
-                auto req_fmt = req->get_format();
-                if (pb.get_target_format() == req_fmt)
-                {
-                    _stream_to_processing_block[req_fmt] = pb.generate_processing_block();
-                }
-            }
-        }*/
-
+        std::lock_guard<std::mutex> lock(_configure_lock);
         auto resolved_req = resolve_requests(requests);
         _raw_sensor->open(resolved_req);
     }
@@ -1810,13 +1804,14 @@ namespace librealsense
 
     void synthetic_sensor::start(frame_callback_ptr callback)
     {
-        //std::mutex frames_lock;
+        std::lock_guard<std::mutex> lock(_configure_lock);
 
         //std::shared_ptr<stream_profile_interface> cached_profile;
 
         auto output_frame = [&, callback](frame_holder f) {
             f.frame->acquire();
             //f.frame->set_stream(cached_profile); // TODO - Ariel - Fix this and remove from rs.cpp workaround -- problem, Y8I before process, Y8 & Y8 after process
+
             callback->on_frame((rs2_frame*)f.frame);
         };
 
@@ -1871,6 +1866,7 @@ namespace librealsense
 
     void synthetic_sensor::stop()
     {
+        std::lock_guard<std::mutex> lock(_configure_lock);
         _raw_sensor->stop();
     }
 

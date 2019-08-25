@@ -536,7 +536,7 @@ namespace librealsense
         smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         smart_depth_ep->register_processing_block(
             { RS2_FORMAT_Z16 },
-            { {RS2_FORMAT_Z16, 0} },
+            { {RS2_FORMAT_Z16, 1} },
             RS2_STREAM_DEPTH,
             []() { return nullptr; }
         );

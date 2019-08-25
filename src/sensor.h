@@ -145,163 +145,80 @@ namespace librealsense
         virtual void reset() = 0;
     };
 
-    //// TODO - Ariel - move to another file
-    //class request
-    //{
-    //public:
-    //    request(stream_profile sp);
-    //    static stream_profile_base resolve(std::shared_ptr<stream_profile_interface> sp) noexcept(false);
-    //private:
-    //    stream_profile_base _resolved_request;
-    //};
+    class processing_block;
 
-    //// TODO NEW SENSOR
-    //class uvc_sensor : public std::enable_shared_from_this<uvc_sensor>,
-    //    public virtual sensor_interface, public options_container, public virtual info_container, public recommended_proccesing_blocks_base
-    //{
-    //    // sensor_interface
-    //public:
-    //    explicit uvc_sensor(std::string name,
-    //        std::shared_ptr<platform::uvc_device> uvc_device,
-    //        std::unique_ptr<frame_timestamp_reader> timestamp_reader,
-    //        device* device);
-    //    virtual ~uvc_sensor() override;
+    class processing_block_factory
+    {
+    public:
+        struct pbf_target
+        {
+            pbf_target(rs2_format fmt, int idx) : _fmt(fmt), _idx(idx) {};
+            rs2_format _fmt;
+            int _idx;
+        };
 
-    //    virtual stream_profiles get_stream_profiles(int tag = profile_tag::PROFILE_TAG_ANY) const override;
-    //    virtual stream_profiles get_active_streams() const override;
-    //    virtual void open(const stream_profiles& requests) override;
-    //    virtual void close() override;
-    //    virtual notifications_callback_ptr get_notifications_callback() const override;
+        processing_block_factory(std::vector<rs2_format> from,
+            std::vector<pbf_target> to,
+            rs2_stream stream,
+            std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
-    //    virtual void register_notifications_callback(notifications_callback_ptr callback) override;
-    //    virtual int register_before_streaming_changes_callback(std::function<void(bool)> callback) override;
-    //    virtual void unregister_before_start_callback(int token) override;
-    //    virtual void start(frame_callback_ptr callback) override;
-    //    virtual void stop() override;
-    //    virtual frame_callback_ptr get_frames_callback() const override;
-    //    virtual void set_frames_callback(frame_callback_ptr cb) override;
-    //    virtual bool is_streaming() const override { return _is_streaming; }
-    //    virtual device_interface& get_device() override;
-    //    std::shared_ptr<notifications_processor> get_notifications_processor();
-    //    // sensor_interface
+        std::function<std::shared_ptr<processing_block>(void)> generate_processing_block; // TODO - Ariel - maybe lazy?
 
-    //    void register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const;
-    //    
-    //    // uvc_sensor
-    //    virtual stream_profiles init_stream_profiles();
-    //    std::vector<platform::stream_profile> get_configuration() const { return _internal_config; }
-    //    platform::usb_spec get_usb_specification() const { return _device->get_usb_specification(); }
+        std::vector<rs2_format> get_source_formats() { return _source_formats; }
+        std::vector<pbf_target> get_target_formats() { return _target_formats; }
+        rs2_stream get_target_stream() { return _target_stream; }
 
-    //    void register_on_before_frame_callback(on_before_frame_callback callback)
-    //    {
-    //        _on_before_frame_callback = callback;
-    //    }
+    protected:
+        std::vector<rs2_format> _source_formats;
+        std::vector<pbf_target> _target_formats;
+        rs2_stream _target_stream;
+        //int index = 0;
+    };
 
-    //    void register_on_open(on_open callback)
-    //    {
-    //        _on_open = callback;
-    //    }
+    class synthetic_sensor :
+        public sensor_base
+        //public extendable_interface
+    {
+    public:
+        explicit synthetic_sensor(std::string name,
+            std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
+            device* device);
+        ~synthetic_sensor() override;
 
-    //    void register_xu(platform::extension_unit xu);
+        std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
 
-    //    template<class T>
-    //    auto invoke_powered(T action)
-    //        -> decltype(action(*static_cast<platform::uvc_device*>(nullptr)))
-    //    {
-    //        power on(std::dynamic_pointer_cast<uvc_sensor>(shared_from_this()));
-    //        return action(*_device);
-    //    }
+        option& get_option(rs2_option id) const override;
 
-    //    void register_pu(rs2_option id);
-    //    void try_register_pu(rs2_option id);
-    //    // uvc_sensor
+        void register_option(rs2_option id, std::shared_ptr<option> option);
 
-    //    // TODO - delete
-    //    void register_pixel_format(native_pixel_format pf) {};
-    //    void remove_pixel_format(native_pixel_format pf) {};
+        void unregister_option(rs2_option id);
 
-    //protected:
-    //    // sensor_interface
-    //    void raise_on_before_streaming_changes(bool streaming);
-    //    void set_active_streams(const stream_profiles& requests);
-    //    void assign_stream(const std::shared_ptr<stream_interface>& stream,
-    //        std::shared_ptr<stream_profile_interface> target) const;
+        virtual stream_profiles init_stream_profiles() override;
 
-    //    std::vector<platform::stream_profile> _internal_config;
+        void open(const stream_profiles& requests) override;
 
-    //    std::atomic<bool> _is_streaming;
-    //    std::atomic<bool> _is_opened;
-    //    std::shared_ptr<notifications_processor> _notifications_processor;
-    //    on_before_frame_callback _on_before_frame_callback;
+        void close() override;
 
-    //    frame_source _source;
-    //    device* _owner;
-    //    std::vector<platform::stream_profile> _uvc_profiles;
+        void start(frame_callback_ptr callback) override;
 
-    //    on_open _on_open;
-    //    std::shared_ptr<metadata_parser_map> _metadata_parsers = nullptr;
-    //    // sensor_interface
+        void stop() override;
 
-    //    // uvc_sensor
+        void register_processing_block(std::vector<rs2_format> from,
+            std::vector<processing_block_factory::pbf_target> to,
+            rs2_stream stream,
+            std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
-    //    // uvc_sensor
-    //private:
-    //    // sensor_interface
-    //    lazy<stream_profiles> _profiles;
-    //    stream_profiles _active_profiles;
-    //    signal<uvc_sensor, bool> on_before_streaming_changes;
-    //    // sensor_interface
+        //bool extend_to(rs2_extension extension_type, void** ext);
 
-    //    // uvc_sensor
-    //    rs2_format fourcc_to_rs2_format(uint32_t format) const;
-    //    rs2_stream fourcc_to_rs2_stream(uint32_t fourcc_format) const;
+    private:
+        stream_profiles resolve_requests(const stream_profiles& requests);
+        //template <rs2_extension E, typename P> bool extend_to_aux(P* p, void** ext);
+        std::mutex _configure_lock;
 
-    //    void acquire_power();
-
-    //    void release_power();
-
-    //    void reset_streaming();
-
-    //    struct power
-    //    {
-    //        explicit power(std::weak_ptr<uvc_sensor> owner)
-    //            : _owner(owner)
-    //        {
-    //            auto strong = _owner.lock();
-    //            if (strong)
-    //            {
-    //                strong->acquire_power();
-    //            }
-    //        }
-
-    //        ~power()
-    //        {
-    //            if (auto strong = _owner.lock())
-    //            {
-    //                try
-    //                {
-    //                    strong->release_power();
-    //                }
-    //                catch (...) {}
-    //            }
-    //        }
-    //    private:
-    //        std::weak_ptr<uvc_sensor> _owner;
-    //    };
-
-    //    const std::map<uint32_t, rs2_format> _fourcc_to_rs2_format = { {rs_fourcc('Y','U','Y','V'), RS2_FORMAT_YUYV},
-    //                                                                  {rs_fourcc('U','Y','U','V'), RS2_FORMAT_UYVY} };
-    //    const std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream = { {rs_fourcc('Y','U','Y','V'), RS2_STREAM_COLOR},
-    //                                                                  {rs_fourcc('U','Y','U','V'), RS2_STREAM_COLOR} };
-
-    //    std::shared_ptr<platform::uvc_device> _device;
-    //    std::atomic<int> _user_count;
-    //    std::mutex _power_lock;
-    //    std::mutex _configure_lock;
-    //    std::vector<platform::extension_unit> _xus;
-    //    std::unique_ptr<power> _power;
-    //    std::unique_ptr<frame_timestamp_reader> _timestamp_reader;
-    //};
+        std::shared_ptr<sensor_base> _raw_sensor;
+        std::vector<processing_block_factory> _pb_factories;
+        std::map<rs2_format, std::shared_ptr<processing_block>> _stream_to_processing_block;
+    };
 
     class iio_hid_timestamp_reader : public frame_timestamp_reader
     {
@@ -407,6 +324,7 @@ namespace librealsense
         void stop() override;
 
         std::shared_ptr<platform::uvc_device> get_uvc_device() { return _device; }
+        void set_owner_sensor(sensor_base* owner) { _sensor_owner = owner; }
 
         platform::usb_spec get_usb_specification() const { return _device->get_usb_specification(); }
         std::string get_device_path() const { return _device->get_device_location(); }
@@ -451,86 +369,13 @@ namespace librealsense
         };
 
         std::shared_ptr<platform::uvc_device> _device;
+        sensor_base* _sensor_owner;
         std::atomic<int> _user_count;
         std::mutex _power_lock;
         std::mutex _configure_lock;
         std::vector<platform::extension_unit> _xus;
         std::unique_ptr<power> _power;
         std::unique_ptr<frame_timestamp_reader> _timestamp_reader;
-    };
-
-    class processing_block;
-
-    class processing_block_factory
-    {
-    public:
-        struct pbf_target
-        {
-            pbf_target(rs2_format fmt, int idx) : _fmt(fmt), _idx(idx) {};
-            rs2_format _fmt;
-            int _idx;
-        };
-
-        processing_block_factory(std::vector<rs2_format> from,
-            std::vector<pbf_target> to,
-            rs2_stream stream,
-            std::function<std::shared_ptr<processing_block>(void)> generate_func);
-        
-        std::function<std::shared_ptr<processing_block>(void)> generate_processing_block; // TODO - Ariel - maybe lazy?
-        
-        std::vector<rs2_format> get_source_formats() { return _source_formats; }
-        std::vector<pbf_target> get_target_formats() { return _target_formats; }
-        rs2_stream get_target_stream() { return _target_stream; }
-
-    protected:
-        std::vector<rs2_format> _source_formats;
-        std::vector<pbf_target> _target_formats;
-        rs2_stream _target_stream;
-        //int index = 0;
-    };
-
-    class synthetic_sensor :
-        public sensor_base
-        //public extendable_interface
-    {
-    public:
-        explicit synthetic_sensor(std::string name,
-            std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
-            device* device);
-        ~synthetic_sensor() override;
-
-        std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
-
-        option& get_option(rs2_option id) const override;
-
-        void register_option(rs2_option id, std::shared_ptr<option> option);
-
-        void unregister_option(rs2_option id);
-
-        virtual stream_profiles init_stream_profiles() override;
-
-        void open(const stream_profiles& requests) override;
-
-        void close() override;
-
-        void start(frame_callback_ptr callback) override;
-
-        void stop() override;
-
-        void register_processing_block(std::vector<rs2_format> from,
-            std::vector<processing_block_factory::pbf_target> to,
-            rs2_stream stream,
-            std::function<std::shared_ptr<processing_block>(void)> generate_func);
-
-        //bool extend_to(rs2_extension extension_type, void** ext);
-
-    private:
-        stream_profiles resolve_requests(const stream_profiles& requests);
-        //template <rs2_extension E, typename P> bool extend_to_aux(P* p, void** ext);
-
-        std::shared_ptr<sensor_base> _raw_sensor;
-        std::vector<processing_block_factory> _pb_factories;
-        std::map<rs2_format, std::shared_ptr<processing_block>> _stream_to_processing_block;
     };
 
     processing_blocks get_color_recommended_proccesing_blocks();
