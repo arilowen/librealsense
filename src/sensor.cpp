@@ -537,7 +537,8 @@ namespace librealsense
         auto on = std::unique_ptr<power>(new power(std::dynamic_pointer_cast<uvc_sensor>(shared_from_this())));
 
         _source.init(_metadata_parsers);
-        _source.set_sensor(this->shared_from_this());
+        //_source.set_sensor(this->shared_from_this());
+        _source.set_sensor(_sensor_owner);
         auto req_profiles = resolve_requests(requests);
 
         auto timestamp_reader = _timestamp_reader.get();
@@ -1491,7 +1492,7 @@ namespace librealsense
         device* dev)
        :   sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
           _device(move(uvc_device)),
-          _sensor_owner(this),
+          //_sensor_owner(this->shared_from_this()),
           _user_count(0),
           _timestamp_reader(std::move(timestamp_reader))
     {
@@ -1621,15 +1622,10 @@ namespace librealsense
 
     synthetic_sensor::synthetic_sensor(std::string name, std::shared_ptr<sensor_base> sensor,
         device* device) : sensor_base(name, device, (recommended_proccesing_blocks_interface*)this), _raw_sensor(std::move(sensor))
-    {
-        auto raw_sensor = std::dynamic_pointer_cast<uvc_sensor>(_raw_sensor);
-        raw_sensor->set_owner_sensor(this);
-    }
+    {}
 
     synthetic_sensor::~synthetic_sensor()
-    {
-
-    }
+    {}
 
     option & synthetic_sensor::get_option(rs2_option id) const
     {
@@ -1667,7 +1663,7 @@ namespace librealsense
             for (auto&& source_fmt : sources)
             {
                 // add profiles that are supported by the device
-                for (auto profile : profiles)
+                for (auto&& profile : profiles)
                 {
                     auto p = std::dynamic_pointer_cast<video_stream_profile>(profile);
                     if (profile->get_format() == source_fmt)
@@ -1697,6 +1693,9 @@ namespace librealsense
                             cloned_profile->set_stream_type(stream_type);
                             cloned_profile->set_framerate(profile->get_framerate());
                             result_profiles.push_back(cloned_profile);
+
+                            //_source_to_target_profiles_map[profile][target_fmt] = cloned_profile;
+                            //_target_to_source_profiles_map[cloned_profile] = profile;
                         }
                     }
                 }
@@ -1714,7 +1713,7 @@ namespace librealsense
             //                            O.feild = p.feild
             //                    add O
         }
-        //_owner->tag_profiles(result_profiles);
+        _owner->tag_profiles(result_profiles);
         return result_profiles;
         
     }
@@ -1744,9 +1743,9 @@ namespace librealsense
 
         for (auto&& pb : _pb_factories)
         {
-            // check if completed 
-            if (unhandled_reqs.empty())
-                return resolved_req;
+            //// check if completed 
+            //if (unhandled_reqs.empty())
+            //    return resolved_req;
 
             auto&& source_fmts = pb.get_source_formats();
             auto target_fmts_cpy(pb.get_target_formats());
@@ -1757,7 +1756,8 @@ namespace librealsense
             {
                 auto target_fmts_iter = std::find_if(target_fmts_cpy.begin(), target_fmts_cpy.end(), [&req](const processing_block_factory::pbf_target& trgt)
                 {
-                    return trgt._fmt == req->get_format();
+                    return trgt._fmt == req->get_format() &&
+                        trgt._idx == req->get_stream_index();
                 });
 
                 
@@ -1768,7 +1768,8 @@ namespace librealsense
 
                     auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](std::shared_ptr<stream_profile_interface> sp) 
                     {
-                        return sp == req;
+                        return sp->get_format() == req->get_format() &&
+                            sp->get_stream_index() == req->get_stream_index();
                     });
 
                     unhandled_reqs.erase(unhandled_req);
@@ -1777,11 +1778,16 @@ namespace librealsense
                 // if we removed all of the formats from the processing block targets, then this is the requested source format.
                 if (target_fmts_cpy.empty() || unhandled_reqs.empty())
                 {
-                    _stream_to_processing_block[req->get_format()] = pb.generate_processing_block();
-                    req->set_format(source_fmts[0]); // TODO - Ariel - add support for multiple sources
-                    resolved_req.push_back(req);
+                    _stream_to_processing_block[source_fmts[0]] = pb.generate_processing_block();
+                    auto video_req = std::dynamic_pointer_cast<video_stream_profile>(req);
+                    auto req_cpy = video_req->deep_clone();
+                    req_cpy->set_format(source_fmts[0]); // TODO - Ariel - add support for multiple sources
+                    resolved_req.push_back(req_cpy);
                     // completed matching a request with it's source processing block format.
                     //break;
+
+                    if (unhandled_reqs.empty())
+                        return resolved_req;
                 }
             }
         }
@@ -1793,6 +1799,10 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
         auto resolved_req = resolve_requests(requests);
+
+        auto raw_sensor = std::dynamic_pointer_cast<uvc_sensor>(_raw_sensor);
+        raw_sensor->set_owner_sensor(this->shared_from_this()); // TODO - Ariel - maybe move set_owner_sensor method to sensor_base if it is common for hid and uvc
+
         _raw_sensor->open(resolved_req);
     }
 
@@ -1802,23 +1812,32 @@ namespace librealsense
         // TODO - Ariel - reset stream to processing block map
     }
 
+    template<class T>
+    frame_callback_ptr make_callback(T callback)
+    {
+        return {
+            new internal_frame_callback<T>(callback),
+            [](rs2_frame_callback* p) { /*p->release(); */}
+        };
+    }
+
     void synthetic_sensor::start(frame_callback_ptr callback)
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
 
         //std::shared_ptr<stream_profile_interface> cached_profile;
 
-        auto output_frame = [&, callback](frame_holder f) {
+        //map<format, sp> cached;
+
+        auto output_cb = make_callback([&, callback](frame_holder f) {
+            // Filter
+            //if not found cached[f.format] return;
+
             f.frame->acquire();
-            //f.frame->set_stream(cached_profile); // TODO - Ariel - Fix this and remove from rs.cpp workaround -- problem, Y8I before process, Y8 & Y8 after process
+            //f.frame->set_stream(cached[f.format]); // TODO - Ariel - Fix this and remove from rs.cpp workaround -- problem, Y8I before process, Y8 & Y8 after process
 
             callback->on_frame((rs2_frame*)f.frame);
-        };
-
-        frame_callback_ptr output_cb = {
-            new internal_frame_callback<decltype(output_frame)>(output_frame),
-            [](rs2_frame_callback* p) { /*p->release(); */}
-        };
+        });
 
         for (auto&& pb_entry : _stream_to_processing_block)
         {
@@ -1829,7 +1848,7 @@ namespace librealsense
             }
         }
 
-        auto process_frame = [&, callback](frame_holder f) {
+        auto process_cb = make_callback([&, callback](frame_holder f) {
             //std::lock_guard<std::mutex> lock(frames_lock);
             
             // cache profile data for post-processing re-definition
@@ -1841,6 +1860,12 @@ namespace librealsense
                 auto&& pb = pb_entry.second;
                 auto&& requested_fmt = pb_entry.first;
 
+                //cached = all_cached[f.frame->get_stream()];
+
+                // process only if the frame format matches the processing block source format
+                if (f->get_stream()->get_format() != requested_fmt)
+                    continue;
+
                 if (pb)
                 {
                     pb->invoke(std::move(f));
@@ -1851,14 +1876,9 @@ namespace librealsense
                     callback->on_frame((rs2_frame*)f.frame);
                 }
             }
-        };
+        });
 
-        frame_callback_ptr process_cb = {
-            new internal_frame_callback<decltype(process_frame)>(process_frame),
-            [](rs2_frame_callback* p) {/* p->release();*/ }
-        };
         // call the processing block on the frame
-        
         _raw_sensor->start(process_cb);
 
         //_raw_sensor->start(callback);

@@ -536,7 +536,7 @@ namespace librealsense
         smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         smart_depth_ep->register_processing_block(
             { RS2_FORMAT_Z16 },
-            { {RS2_FORMAT_Z16, 1} },
+            { {RS2_FORMAT_Z16, 0} },
             RS2_STREAM_DEPTH,
             []() { return nullptr; }
         );
@@ -559,6 +559,22 @@ namespace librealsense
             RS2_STREAM_INFRARED,
             []() { return std::make_shared<y8i_to_y8y8>(); 
         });
+
+        //smart_depth_ep->register_processing_block(
+        //    { RS2_FORMAT_Y8, RS2_FORMAT_Z16 },
+        //    { {RS2_FORMAT_Y8, 1} , {RS2_FORMAT_Y8, 2} },
+        //    RS2_STREAM_INFRARED,
+        //    []() { 
+        //        return make_shared<zo_plus_syncer>();
+
+        //        auto zo = std::make_shared<zero_order>();
+
+        //        auto s = std::make_shared<syncer>();
+
+        //        s.set_output_callback([zo](f) { zo.invoke(f); });
+
+        //        return s;
+        //    });
 
 
         return smart_depth_ep;

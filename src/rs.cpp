@@ -414,7 +414,7 @@ rs2_stream_profile* rs2_clone_stream_profile(const rs2_stream_profile* mode, rs2
     sp->set_stream_type(stream);
     sp->set_stream_index(stream_idx);
     sp->set_format(fmt);
-    sp->set_unique_id(mode->profile->get_unique_id());
+    //sp->set_unique_id(mode->profile->get_unique_id());
 
     return new rs2_stream_profile{ sp.get(), sp };
 }

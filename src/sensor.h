@@ -82,6 +82,8 @@ namespace librealsense
             return {};
         }
 
+        lazy<stream_profiles> _profiles;
+
     protected:
         void raise_on_before_streaming_changes(bool streaming);
         void set_active_streams(const stream_profiles& requests);
@@ -112,7 +114,7 @@ namespace librealsense
         //rs2_format advanced_to_backend_format(rs2_format format) const;
 
     private:
-        lazy<stream_profiles> _profiles;
+        //lazy<stream_profiles> _profiles;
         stream_profiles _active_profiles;
         std::vector<native_pixel_format> _pixel_formats;
         signal<sensor_base, bool> on_before_streaming_changes;
@@ -218,6 +220,8 @@ namespace librealsense
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<processing_block_factory> _pb_factories;
         std::map<rs2_format, std::shared_ptr<processing_block>> _stream_to_processing_block;
+        std::map<stream_profiles, std::map<std::vector<rs2_format>, stream_profiles>> _source_to_target_profiles_map;
+        std::map<stream_profiles, stream_profiles> _target_to_source_profiles_map;
     };
 
     class iio_hid_timestamp_reader : public frame_timestamp_reader
@@ -324,7 +328,7 @@ namespace librealsense
         void stop() override;
 
         std::shared_ptr<platform::uvc_device> get_uvc_device() { return _device; }
-        void set_owner_sensor(sensor_base* owner) { _sensor_owner = owner; }
+        void set_owner_sensor(std::shared_ptr<sensor_base> owner) { _sensor_owner = owner; }
 
         platform::usb_spec get_usb_specification() const { return _device->get_usb_specification(); }
         std::string get_device_path() const { return _device->get_device_location(); }
@@ -369,7 +373,7 @@ namespace librealsense
         };
 
         std::shared_ptr<platform::uvc_device> _device;
-        sensor_base* _sensor_owner;
+        std::shared_ptr<sensor_base> _sensor_owner;
         std::atomic<int> _user_count;
         std::mutex _power_lock;
         std::mutex _configure_lock;
