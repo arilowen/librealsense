@@ -541,12 +541,12 @@ namespace librealsense
             RS2_STREAM_DEPTH,
             []() { return std::make_shared<identity_processing_block>(); }
         );
-        //smart_depth_ep->register_processing_block(
-        //    { RS2_FORMAT_Y8 },
-        //    { {RS2_FORMAT_Y8, 1} },
-        //    RS2_STREAM_INFRARED,
-        //    []() { return nullptr; }
-        //);
+        smart_depth_ep->register_processing_block(
+            { RS2_FORMAT_Y8 },
+            { {RS2_FORMAT_Y8, 1} },
+            RS2_STREAM_INFRARED,
+            []() { return nullptr; }
+        );
 
         //smart_depth_ep->register_processing_block(
         //    { RS2_FORMAT_Z16, RS2_FORMAT_Y8 },
@@ -564,18 +564,19 @@ namespace librealsense
 
         //smart_depth_ep->register_processing_block(
         //    { RS2_FORMAT_Y8, RS2_FORMAT_Z16 },
-        //    { {RS2_FORMAT_Y8, 1} , {RS2_FORMAT_Y8, 2} },
+        //    { {RS2_FORMAT_Y8, 1} , {RS2_FORMAT_Z16, 0} },
         //    RS2_STREAM_INFRARED,
-        //    []() { 
-        //        return make_shared<zo_plus_syncer>();
+        //    []() {
+        //        //return make_shared<zo_plus_syncer>();
 
-        //        auto zo = std::make_shared<zero_order>();
+        //        //auto zo = std::make_shared<zero_order>();
 
-        //        auto s = std::make_shared<syncer>();
+        //        //auto s = std::make_shared<syncer>();
 
-        //        s.set_output_callback([zo](f) { zo.invoke(f); });
+        //        //s.set_output_callback([zo](f) { zo.invoke(f); });
 
-        //        return s;
+        //        //return s;
+        //        return std::make_shared<identity_processing_block>();
         //    });
 
 

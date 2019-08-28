@@ -218,6 +218,7 @@ namespace librealsense
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);
         std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_holder& f);
+        void sort_profiles_by_resolution(stream_profiles * profiles);
         //template <rs2_extension E, typename P> bool extend_to_aux(P* p, void** ext);
         std::mutex _configure_lock;
 

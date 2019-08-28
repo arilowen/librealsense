@@ -1603,6 +1603,31 @@ namespace librealsense
             _raw_sensor->unregister_option(id);
     }
 
+    void synthetic_sensor::sort_profiles_by_resolution(stream_profiles* profiles)
+    {
+        // by height
+        std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
+        {
+            auto spa = std::dynamic_pointer_cast<video_stream_profile>(spia);
+            auto spb = std::dynamic_pointer_cast<video_stream_profile>(spib);
+            return spa->get_height() < spb->get_height();
+        });
+
+        // by width
+        std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
+        {
+            auto spa = std::dynamic_pointer_cast<video_stream_profile>(spia);
+            auto spb = std::dynamic_pointer_cast<video_stream_profile>(spib);
+            return spa->get_width() < spb->get_width();
+        });
+
+        // by format
+        std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
+        {
+            return spia->get_format() < spib->get_format();
+        });
+    }
+
     stream_profiles synthetic_sensor::init_stream_profiles()
     {
         stream_profiles result_profiles;
@@ -1625,20 +1650,6 @@ namespace librealsense
                     auto p = std::dynamic_pointer_cast<video_stream_profile>(profile);
                     if (profile->get_format() == source_fmt)
                     {
-                        // disregard duplicated
-                        auto duplicate_it = std::find_if(result_profiles.begin(), result_profiles.end(), [&p](std::shared_ptr<stream_profile_interface> spi)
-                        {
-                            auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
-                            return (sp->get_format() == p->get_format() &&
-                                //sp->get_unique_id() == p->get_unique_id() && // not good - example y8i uid = 2 y8 uid = 1 -> will create y8 again.
-                                //sp->get_stream_index() == p->get_stream_index() &&
-                                //sp->get_stream_type() == p->get_stream_type() &&
-                                sp->get_height() == p->get_height() &&
-                                sp->get_width() == p->get_width());
-                        });
-                        if (duplicate_it != result_profiles.end())
-                            continue;
-
                         for (auto&& target_fmt : targets)
                         {
                             auto vsp = As<video_stream_profile, stream_profile_interface>(profile);
@@ -1649,6 +1660,21 @@ namespace librealsense
                             cloned_profile->set_stream_index(target_fmt._idx);
                             cloned_profile->set_stream_type(stream_type);
                             cloned_profile->set_framerate(profile->get_framerate());
+
+                            // disregard duplicated
+                            if (std::find_if(result_profiles.begin(), result_profiles.end(), [&cloned_profile](std::shared_ptr<stream_profile_interface> spi)
+                            {
+                                auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
+                                return (sp->get_format() == cloned_profile->get_format() &&
+                                    //sp->get_unique_id() == p->get_unique_id() && // not good - example y8i uid = 2 y8 uid = 1 -> will create y8 again.
+                                    sp->get_stream_index() == cloned_profile->get_stream_index() &&
+                                    sp->get_stream_type() == cloned_profile->get_stream_type() &&
+                                    sp->get_height() == cloned_profile->get_height() &&
+                                    sp->get_framerate() == cloned_profile->get_framerate() &&
+                                    sp->get_width() == cloned_profile->get_width());
+                            }) != result_profiles.end())
+                                continue;
+
                             result_profiles.push_back(cloned_profile);
 
                             _source_to_target_profiles_map[profile][target_fmt._fmt] = cloned_profile;
@@ -1671,8 +1697,8 @@ namespace librealsense
             //                    add O
         }
         _owner->tag_profiles(result_profiles);
+        sort_profiles_by_resolution(&result_profiles);
         return result_profiles;
-        
     }
 
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
@@ -1801,6 +1827,7 @@ namespace librealsense
 
     void synthetic_sensor::close()
     {
+        std::lock_guard<std::mutex> lock(_configure_lock);
         _raw_sensor->close();
         // TODO - Ariel - reset stream to processing block map
     }
@@ -1870,7 +1897,7 @@ namespace librealsense
 
         auto process_cb = make_callback([&, callback, this](frame_holder f) {
 
-            std::lock_guard<std::mutex> lock(_configure_lock); // TODO - Ariel - maybe can cause deadlock?
+            //std::lock_guard<std::mutex> lock(_configure_lock); // TODO - Ariel - maybe can cause deadlock?
             if (!f)
                 return;
             // cache profile data for post-processing re-definition
