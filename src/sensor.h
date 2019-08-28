@@ -211,17 +211,19 @@ namespace librealsense
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
         //bool extend_to(rs2_extension extension_type, void** ext);
+        std::map<std::shared_ptr<stream_profile_interface>, std::map<rs2_format, std::shared_ptr<stream_profile_interface>>> _source_to_target_profiles_map;
+        std::map<std::shared_ptr<stream_profile_interface>, std::shared_ptr<stream_profile_interface>> _target_to_source_profiles_map;
+        std::unordered_map<rs2_format, stream_profiles> cached_requests;
 
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);
+        std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_holder& f);
         //template <rs2_extension E, typename P> bool extend_to_aux(P* p, void** ext);
         std::mutex _configure_lock;
 
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<processing_block_factory> _pb_factories;
         std::map<rs2_format, std::shared_ptr<processing_block>> _stream_to_processing_block;
-        std::map<stream_profiles, std::map<std::vector<rs2_format>, stream_profiles>> _source_to_target_profiles_map;
-        std::map<stream_profiles, stream_profiles> _target_to_source_profiles_map;
     };
 
     class iio_hid_timestamp_reader : public frame_timestamp_reader

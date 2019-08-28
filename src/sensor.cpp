@@ -500,32 +500,6 @@ namespace librealsense
             _pixel_formats.erase(it);
     }
 
-    // TODO - Ariel maybe create a class converter
-    //std::shared_ptr<frame> convert_frame_object(const platform::frame_object & fo, std::shared_ptr<stream_profile_interface> sp)
-    //{
-    //    // pixel data
-    //    std::shared_ptr<frame> f(new frame);
-    //    byte* pixels = (byte*)fo.pixels;
-
-    //    for (int i = 0; i < fo.frame_size; i++)
-    //    {
-    //        f->data.push_back(pixels[i]);
-    //    }
-
-    //    // stream data
-    //    f->set_stream(sp);
-
-    //    // metadata
-    //    uint8_t* metadata = (uint8_t*)fo.metadata;
-    //    for (int i = 0; i < fo.metadata_size; i++)
-    //    {
-    //        f->additional_data.metadata_blob[i] = metadata[i];
-    //    }
-    //    f->additional_data.metadata_size = fo.metadata_size;
-
-    //    return f;
-    //}
-
     void uvc_sensor::open(const stream_profiles& requests)
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
@@ -555,8 +529,6 @@ namespace librealsense
                 _device->probe_and_commit(req_profile_base->get_backend_profile(),
                     [this, timestamp_reader, req_profile_base, last_frame_number, last_timestamp](platform::stream_profile p, platform::frame_object f, std::function<void()> continuation) mutable
                 {
-                    scoped_timer t("probe commit scope");
-
                     auto system_time = environment::get_instance().get_time_service()->get_time();
                     if (!this->is_streaming())
                     {
@@ -592,28 +564,14 @@ namespace librealsense
                     std::vector<byte> pixels (pix, pix + f.frame_size);
                     frame->data = pixels;
                     frame->set_stream(req_profile_base);
-                    {
-                        scoped_timer t("timestamp query");
-                        {
-                           /* scoped_timer t("convert_frame_object query");
-                            frame = convert_frame_object(f, req_profile_base);*/
-                        }
-                        {
-                            scoped_timer t("get_frame_timestamp query");
-                            timestamp = timestamp_reader->get_frame_timestamp(frame);
-                            additional_data.timestamp = timestamp;
-                        }
-                        {
-                            scoped_timer t("get_frame_timestamp_domain query");
-                            timestamp_domain = timestamp_reader->get_frame_timestamp_domain(frame);
-                        }
-                        {
-                            scoped_timer t("get_frame_counter query");
-                            additional_data.last_frame_number =
-                            frame_counter = timestamp_reader->get_frame_counter(frame);
-                            additional_data.frame_number = frame_counter;
-                        }
-                    }
+                        
+                    timestamp = timestamp_reader->get_frame_timestamp(frame);
+                    additional_data.timestamp = timestamp;
+                        
+                    timestamp_domain = timestamp_reader->get_frame_timestamp_domain(frame);
+                    additional_data.last_frame_number =
+                    frame_counter = timestamp_reader->get_frame_counter(frame);
+                    additional_data.frame_number = frame_counter;
 
                     auto requires_processing = true;//mode.requires_processing(); // TODO - Ariel add option
 
@@ -657,7 +615,6 @@ namespace librealsense
                         if (fh.frame)
                         {
                             memcpy((void*)fh->get_frame_data(), frame->data.data(), sizeof(byte)*frame->data.size());
-                            scoped_timer t("frame holder scoped timer");
                             auto video = (video_frame*)fh.frame;
                             video->assign(width, height, width * bpp / 8, bpp);
                             video->set_timestamp_domain(timestamp_domain);
@@ -1694,8 +1651,8 @@ namespace librealsense
                             cloned_profile->set_framerate(profile->get_framerate());
                             result_profiles.push_back(cloned_profile);
 
-                            //_source_to_target_profiles_map[profile][target_fmt] = cloned_profile;
-                            //_target_to_source_profiles_map[cloned_profile] = profile;
+                            _source_to_target_profiles_map[profile][target_fmt._fmt] = cloned_profile;
+                            _target_to_source_profiles_map[cloned_profile] = profile;
                         }
                     }
                 }
@@ -1720,78 +1677,114 @@ namespace librealsense
 
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
     {
-        /*for (auto&& req : requests)
-        {
-            for (auto&& pb : _pb_factories)
-            {
-                auto source_fmt = pb.get_source_format();
-                auto target_fmt = pb.get_target_format();
-                if (target_fmt == req->get_format())
-                    req->set_format(source_fmt);
-            }
-        }*/
+        //// sort factories by descending size of target formats.
+        //// best match between maximum requests and factory targets must be handled first.
+        //std::sort(_pb_factories.begin(), _pb_factories.end(), [](processing_block_factory& pba, processing_block_factory& pbb) 
+        //{
+        //    return pba.get_target_formats().size() > pbb.get_target_formats().size();
+        //});
 
-        // sort factories by descending size of target formats.
-        // best match between maximum requests and factory targets must be handled first.
-        std::sort(_pb_factories.begin(), _pb_factories.end(), [](processing_block_factory& pba, processing_block_factory& pbb) 
-        {
-            return pba.get_target_formats().size() > pbb.get_target_formats().size();
-        });
+        //stream_profiles unhandled_reqs(requests);
+        //stream_profiles resolved_req;
 
-        stream_profiles unhandled_reqs(requests);
+        //for (auto&& pb : _pb_factories)
+        //{
+        //    //// check if completed 
+        //    //if (unhandled_reqs.empty())
+        //    //    return resolved_req;
+
+        //    auto&& source_fmts = pb.get_source_formats();
+        //    auto target_fmts_cpy(pb.get_target_formats());
+
+        //    // remove all the matching requests and processing targets formats (from duplicates)
+        //    // once the processing block's target format list is empty, we found a match and resolve a request with its source format.
+        //    for (auto&& req : requests)
+        //    {
+        //        auto target_fmts_iter = std::find_if(target_fmts_cpy.begin(), target_fmts_cpy.end(), [&req](const processing_block_factory::pbf_target& trgt)
+        //        {
+        //            return trgt._fmt == req->get_format() &&
+        //                trgt._idx == req->get_stream_index();
+        //        });
+
+        //        
+        //        if (target_fmts_iter != target_fmts_cpy.end())
+        //        {
+        //            // found a target format match with request
+        //            target_fmts_cpy.erase(target_fmts_iter);
+
+        //            auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](std::shared_ptr<stream_profile_interface> sp) 
+        //            {
+        //                return sp->get_format() == req->get_format() &&
+        //                    sp->get_stream_index() == req->get_stream_index();
+        //            });
+
+        //            unhandled_reqs.erase(unhandled_req);
+        //        }
+
+        //        // if we removed all of the formats from the processing block targets, then this is the requested source format.
+        //        if (target_fmts_cpy.empty() || unhandled_reqs.empty())
+        //        {
+        //            _stream_to_processing_block[source_fmts[0]] = pb.generate_processing_block();
+        //            auto video_req = std::dynamic_pointer_cast<video_stream_profile>(req);
+        //            auto req_cpy = video_req->deep_clone();
+        //            req_cpy->set_format(source_fmts[0]); // TODO - Ariel - add support for multiple sources
+        //            resolved_req.push_back(req_cpy);
+        //            // completed matching a request with it's source processing block format.
+        //            //break;
+
+        //            if (unhandled_reqs.empty())
+        //                return resolved_req;
+        //        }
+        //    }
+        //}
+
+        //return resolved_req;
+
+
+        //// sort processing blocks factories by the size of their sources formats.
+        //std::sort(_pb_factories.begin(), _pb_factories.end(), [](processing_block_factory pbfa, processing_block_factory pbfb) {
+        //    return pbfa.get_source_formats().size() <= pbfb.get_source_formats().size();
+        //});
+
+        std::unordered_set<std::shared_ptr<stream_profile_interface>> resolved_req_set;
         stream_profiles resolved_req;
-
-        for (auto&& pb : _pb_factories)
+        stream_profiles unhandled_reqs(requests);
+        
+        for (auto req : requests)
         {
-            //// check if completed 
-            //if (unhandled_reqs.empty())
-            //    return resolved_req;
+            if (unhandled_reqs.empty())
+                break;
 
-            auto&& source_fmts = pb.get_source_formats();
-            auto target_fmts_cpy(pb.get_target_formats());
+            auto mapped_source_profile = _target_to_source_profiles_map[req];
+            resolved_req_set.insert(mapped_source_profile);
 
-            // remove all the matching requests and processing targets formats (from duplicates)
-            // once the processing block's target format list is empty, we found a match and resolve a request with its source format.
-            for (auto&& req : requests)
+            // cache the request
+            cached_requests[req->get_format()].push_back(req);
+
+            // generate matching processing blocks
+            for (auto pb : _pb_factories)
             {
-                auto target_fmts_iter = std::find_if(target_fmts_cpy.begin(), target_fmts_cpy.end(), [&req](const processing_block_factory::pbf_target& trgt)
-                {
-                    return trgt._fmt == req->get_format() &&
-                        trgt._idx == req->get_stream_index();
-                });
+                auto pb_sources = pb.get_source_formats();
 
-                
-                if (target_fmts_iter != target_fmts_cpy.end())
+                // look for a match between processing block source format and the resolved request format
+                if (std::find_if(pb_sources.begin(), pb_sources.end(), [&mapped_source_profile](rs2_format fmt) {
+                    return (fmt == mapped_source_profile->get_format());
+                    }) != pb_sources.end())
                 {
-                    // found a target format match with request
-                    target_fmts_cpy.erase(target_fmts_iter);
-
-                    auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](std::shared_ptr<stream_profile_interface> sp) 
-                    {
-                        return sp->get_format() == req->get_format() &&
-                            sp->get_stream_index() == req->get_stream_index();
+                    _stream_to_processing_block[mapped_source_profile->get_format()] = pb.generate_processing_block();
+                    
+                    // mark as handled and resolved.
+                    auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
+                        return req == sp;
                     });
-
                     unhandled_reqs.erase(unhandled_req);
-                }
-
-                // if we removed all of the formats from the processing block targets, then this is the requested source format.
-                if (target_fmts_cpy.empty() || unhandled_reqs.empty())
-                {
-                    _stream_to_processing_block[source_fmts[0]] = pb.generate_processing_block();
-                    auto video_req = std::dynamic_pointer_cast<video_stream_profile>(req);
-                    auto req_cpy = video_req->deep_clone();
-                    req_cpy->set_format(source_fmts[0]); // TODO - Ariel - add support for multiple sources
-                    resolved_req.push_back(req_cpy);
-                    // completed matching a request with it's source processing block format.
-                    //break;
-
-                    if (unhandled_reqs.empty())
-                        return resolved_req;
+                    
+                    break;
                 }
             }
         }
 
+        resolved_req = { resolved_req_set.begin(), resolved_req_set.end() };
         return resolved_req;
     }
 
@@ -1821,21 +1814,48 @@ namespace librealsense
         };
     }
 
+    std::shared_ptr<stream_profile_interface> synthetic_sensor::filter_frame_by_requests(frame_holder& f)
+    {
+        std::shared_ptr<stream_profile_interface> cached_profile;
+        auto cached_req = cached_requests.find(f->get_stream()->get_format());
+        if (cached_req == cached_requests.end())
+            return cached_profile;
+
+        // find a match between the request and the processed frame
+        for (auto req : cached_req->second)
+        {
+            if (req->get_stream_index() == f->get_stream()->get_stream_index())
+            {
+                cached_profile = req;
+                break;
+            }
+        }
+
+        return cached_profile;
+    }
+
     void synthetic_sensor::start(frame_callback_ptr callback)
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
-
-        //std::shared_ptr<stream_profile_interface> cached_profile;
 
         //map<format, sp> cached;
 
         auto output_cb = make_callback([&, callback](frame_holder f) {
             // Filter
             //if not found cached[f.format] return;
+            auto cached_profile = filter_frame_by_requests(f);
 
-            f.frame->acquire();
+            if (cached_profile)
+            {
+                f.frame->acquire();
+                f->set_stream(cached_profile);
+            }
+            else
+                return;
+
+
             //f.frame->set_stream(cached[f.format]); // TODO - Ariel - Fix this and remove from rs.cpp workaround -- problem, Y8I before process, Y8 & Y8 after process
-
+            //f->set_stream(cached_profile);
             callback->on_frame((rs2_frame*)f.frame);
         });
 
@@ -1848,33 +1868,42 @@ namespace librealsense
             }
         }
 
-        auto process_cb = make_callback([&, callback](frame_holder f) {
-            //std::lock_guard<std::mutex> lock(frames_lock);
-            
+        auto process_cb = make_callback([&, callback, this](frame_holder f) {
+
+            std::lock_guard<std::mutex> lock(_configure_lock); // TODO - Ariel - maybe can cause deadlock?
+            if (!f)
+                return;
             // cache profile data for post-processing re-definition
             //cached_profile = f.frame->get_stream()->clone();
 
             for (auto&& pb_entry : _stream_to_processing_block)
             {
+
+
                 // TODO - Ariel - handle multiple requests
                 auto&& pb = pb_entry.second;
                 auto&& requested_fmt = pb_entry.first;
 
                 //cached = all_cached[f.frame->get_stream()];
+                //cached_profile = _source_to_target_profiles_map[f->get_stream()][requested_fmt];
 
                 // process only if the frame format matches the processing block source format
                 if (f->get_stream()->get_format() != requested_fmt)
                     continue;
 
-                if (pb)
-                {
-                    pb->invoke(std::move(f));
-                }
-                else
-                {
-                    f.frame->acquire();
-                    callback->on_frame((rs2_frame*)f.frame);
-                }
+                //if (pb)
+                //{
+                pb->invoke(std::move(f));
+                //}
+                //else
+                //{
+                //    f.frame->acquire();
+                //    //f->set_stream(cached_profile);
+                //    callback->on_frame((rs2_frame*)f.frame);
+                //}
+
+                // completed handling frame
+                return;
             }
         });
 
@@ -1888,6 +1917,7 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
         _raw_sensor->stop();
+        cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }
 
     void synthetic_sensor::register_processing_block(std::vector<rs2_format> from, std::vector<processing_block_factory::pbf_target> to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func)

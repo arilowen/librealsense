@@ -20,6 +20,7 @@
 #include "environment.h"
 
 #include "proc/yuy2rgb.h"
+#include "proc/identity-processing-block.h"
 #include "functional"
 
 namespace librealsense

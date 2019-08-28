@@ -27,10 +27,11 @@
 #include "proc/disparity-transform.h"
 #include "proc/spatial-filter.h"
 #include "proc/temporal-filter.h"
+#include "proc/y8i-to-y8y8.h"
+#include "proc/identity-processing-block.h"
 #include "proc/hole-filling-filter.h"
 #include "../common/fw/firmware-version.h"
 #include "fw-update/fw-update-unsigned.h"
-#include "proc/y8i-to-y8y8.h"
 
 namespace librealsense
 {
@@ -538,14 +539,15 @@ namespace librealsense
             { RS2_FORMAT_Z16 },
             { {RS2_FORMAT_Z16, 0} },
             RS2_STREAM_DEPTH,
-            []() { return nullptr; }
+            []() { return std::make_shared<identity_processing_block>(); }
         );
-        smart_depth_ep->register_processing_block(
-            { RS2_FORMAT_Y8 },
-            { {RS2_FORMAT_Y8, 1} },
-            RS2_STREAM_INFRARED,
-            []() { return nullptr; }
-        );
+        //smart_depth_ep->register_processing_block(
+        //    { RS2_FORMAT_Y8 },
+        //    { {RS2_FORMAT_Y8, 1} },
+        //    RS2_STREAM_INFRARED,
+        //    []() { return nullptr; }
+        //);
+
         //smart_depth_ep->register_processing_block(
         //    { RS2_FORMAT_Z16, RS2_FORMAT_Y8 },
         //    { {RS2_FORMAT_ANY, 1} },
