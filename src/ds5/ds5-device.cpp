@@ -535,24 +535,19 @@ namespace librealsense
         //auto smart_depth_ep = std::make_shared<synthetic_sensor>("Smart Depth Sensor", depth_ep, this);
         auto smart_depth_ep = std::make_shared<ds5_depth_sensor>(this, depth_ep);
         smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
+
         smart_depth_ep->register_processing_block(
             { RS2_FORMAT_Z16 },
             { {RS2_FORMAT_Z16, 0} },
             RS2_STREAM_DEPTH,
             []() { return std::make_shared<identity_processing_block>(); }
         );
-        smart_depth_ep->register_processing_block(
-            { RS2_FORMAT_Y8 },
-            { {RS2_FORMAT_Y8, 1} },
-            RS2_STREAM_INFRARED,
-            []() { return nullptr; }
-        );
 
         //smart_depth_ep->register_processing_block(
-        //    { RS2_FORMAT_Z16, RS2_FORMAT_Y8 },
+        //    { RS2_FORMAT_Z16, RS2_FORMAT_Y8I },
         //    { {RS2_FORMAT_ANY, 1} },
         //    RS2_STREAM_DEPTH,
-        //    []() { return nullptr; }
+        //    []() { return std::make_shared<identity_processing_block>(); }
         //);
 
         smart_depth_ep->register_processing_block(
@@ -562,10 +557,17 @@ namespace librealsense
             []() { return std::make_shared<y8i_to_y8y8>(); 
         });
 
+        smart_depth_ep->register_processing_block(
+            { RS2_FORMAT_Y8 },
+            { {RS2_FORMAT_Y8, 1} },
+            RS2_STREAM_INFRARED,
+            []() { return std::make_shared<identity_processing_block>(); }
+        );
+
         //smart_depth_ep->register_processing_block(
         //    { RS2_FORMAT_Y8, RS2_FORMAT_Z16 },
-        //    { {RS2_FORMAT_Y8, 1} , {RS2_FORMAT_Z16, 0} },
-        //    RS2_STREAM_INFRARED,
+        //    {{RS2_FORMAT_Z16, 0} },
+        //    RS2_STREAM_DEPTH,
         //    []() {
         //        //return make_shared<zo_plus_syncer>();
 

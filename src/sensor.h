@@ -132,7 +132,7 @@ namespace librealsense
     //{RS2_FORMAT_Y8, RS2_FORMAT_Y8},
     //{RS2_FORMAT_Z16, RS2_FORMAT_Z16} };
         const std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream = { {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
-        {rs_fourcc('G','R','E','Y'), RS2_STREAM_DEPTH},
+        {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
         {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
         {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH} };
     };
@@ -157,24 +157,42 @@ namespace librealsense
             pbf_target(rs2_format fmt, int idx) : _fmt(fmt), _idx(idx) {};
             rs2_format _fmt;
             int _idx;
+
+            bool operator==(const pbf_target& rhs)
+            {
+                return rhs._fmt == _fmt &&
+                    rhs._idx == _idx;
+            }
         };
+
+        processing_block_factory() {};
 
         processing_block_factory(std::vector<rs2_format> from,
             std::vector<pbf_target> to,
             rs2_stream stream,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
+        processing_block_factory(const processing_block_factory& rhs);
+
         std::function<std::shared_ptr<processing_block>(void)> generate_processing_block; // TODO - Ariel - maybe lazy?
 
-        std::vector<rs2_format> get_source_formats() { return _source_formats; }
-        std::vector<pbf_target> get_target_formats() { return _target_formats; }
-        rs2_stream get_target_stream() { return _target_stream; }
+        std::vector<rs2_format> get_source_formats() const { return _source_formats; }
+        std::vector<pbf_target> get_target_formats() const { return _target_formats; }
+        rs2_stream get_target_stream() const { return _target_stream; }
+
+        processing_block_factory& operator=(const processing_block_factory& rhs);
+
+        bool operator==(const processing_block_factory& rhs);
+
+        stream_profiles find_satisfied_requests(stream_profiles sp);
 
     protected:
         std::vector<rs2_format> _source_formats;
         std::vector<pbf_target> _target_formats;
         rs2_stream _target_stream;
-        //int index = 0;
+
+    private:
+        void copy_processing_block_factory(const processing_block_factory & rhs);
     };
 
     class synthetic_sensor :
@@ -187,22 +205,15 @@ namespace librealsense
             device* device);
         ~synthetic_sensor() override;
 
-        std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
-
         option& get_option(rs2_option id) const override;
-
         void register_option(rs2_option id, std::shared_ptr<option> option);
-
         void unregister_option(rs2_option id);
 
         virtual stream_profiles init_stream_profiles() override;
 
         void open(const stream_profiles& requests) override;
-
         void close() override;
-
         void start(frame_callback_ptr callback) override;
-
         void stop() override;
 
         void register_processing_block(std::vector<rs2_format> from,
@@ -210,21 +221,23 @@ namespace librealsense
             rs2_stream stream,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
-        //bool extend_to(rs2_extension extension_type, void** ext);
+        std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
+
         std::map<std::shared_ptr<stream_profile_interface>, std::map<rs2_format, std::shared_ptr<stream_profile_interface>>> _source_to_target_profiles_map;
-        std::map<std::shared_ptr<stream_profile_interface>, std::shared_ptr<stream_profile_interface>> _target_to_source_profiles_map;
+        std::map<std::shared_ptr<stream_profile_interface>, stream_profiles> _target_to_source_profiles_map;
         std::unordered_map<rs2_format, stream_profiles> cached_requests;
 
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);
         std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_holder& f);
         void sort_profiles_by_resolution(stream_profiles * profiles);
-        //template <rs2_extension E, typename P> bool extend_to_aux(P* p, void** ext);
+        std::pair<processing_block_factory, stream_profiles> find_requests_best_match(stream_profiles sp);
+
         std::mutex _configure_lock;
 
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<processing_block_factory> _pb_factories;
-        std::map<rs2_format, std::shared_ptr<processing_block>> _stream_to_processing_block;
+        std::map<std::vector<rs2_format>, std::shared_ptr<processing_block>> _formats_to_processing_block;
     };
 
     class iio_hid_timestamp_reader : public frame_timestamp_reader
