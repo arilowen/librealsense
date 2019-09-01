@@ -538,8 +538,7 @@ namespace librealsense
 
         smart_depth_ep->register_processing_block(
             { RS2_FORMAT_Z16 },
-            { {RS2_FORMAT_Z16, 0} },
-            RS2_STREAM_DEPTH,
+            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
             []() { return std::make_shared<identity_processing_block>(); }
         );
 
@@ -552,15 +551,13 @@ namespace librealsense
 
         smart_depth_ep->register_processing_block(
             { RS2_FORMAT_Y8I },
-            { {RS2_FORMAT_Y8, 1} , {RS2_FORMAT_Y8, 2} },
-            RS2_STREAM_INFRARED,
+            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
             []() { return std::make_shared<y8i_to_y8y8>(); 
         });
 
         smart_depth_ep->register_processing_block(
             { RS2_FORMAT_Y8 },
-            { {RS2_FORMAT_Y8, 1} },
-            RS2_STREAM_INFRARED,
+            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
             []() { return std::make_shared<identity_processing_block>(); }
         );
 

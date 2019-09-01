@@ -1643,30 +1643,32 @@ namespace librealsense
             //    in = pbf.input
             auto sources = pbf.get_source_formats();
             auto targets = pbf.get_target_formats();
-            rs2_stream&& stream_type = pbf.get_target_stream();
 
             for (auto&& source_fmt : sources)
             {
                 // add profiles that are supported by the device
                 for (auto&& profile : profiles)
                 {
-                    auto p = std::dynamic_pointer_cast<video_stream_profile>(profile);
+                    auto vsp = std::dynamic_pointer_cast<video_stream_profile>(profile);
                     if (profile->get_format() == source_fmt)
                     {
-                        for (auto&& target_fmt : targets)
+                        for (auto&& target : targets)
                         {
-                            auto vsp = As<video_stream_profile, stream_profile_interface>(profile);
+                            target.fps = profile->get_framerate();
+                            target.height = vsp->get_height();
+                            target.width = vsp->get_width();
+
                             auto cloned_profile = std::make_shared<video_stream_profile>(vsp->get_backend_profile());
                             //cloned_profile->set_unique_id(profile->get_unique_id());
-                            cloned_profile->set_dims(vsp->get_width(), vsp->get_height());
-                            cloned_profile->set_format(target_fmt._fmt);
-                            cloned_profile->set_stream_index(target_fmt._idx);
-                            cloned_profile->set_stream_type(stream_type);
-                            cloned_profile->set_framerate(profile->get_framerate());
+                            cloned_profile->set_dims(target.width, target.height);
+                            cloned_profile->set_format(target.format);
+                            cloned_profile->set_stream_index(target.index);
+                            cloned_profile->set_stream_type(target.stream);
+                            cloned_profile->set_framerate(target.fps);
 
                             // cache the source to target mapping
-                            _source_to_target_profiles_map[profile][target_fmt._fmt] = cloned_profile;
-                            _target_to_source_profiles_map[cloned_profile].push_back(profile);
+                            _source_to_target_profiles_map[profile].push_back(cloned_profile);
+                            _target_to_source_profiles_map[target].push_back(profile);
 
                             //auto profile_to_pb_factory_match = std::find_if(profile_to_pb_factory.begin(), profile_to_pb_factory.end(), [&profile](auto entry) {
                             //    return profile == entry.first;
@@ -1701,7 +1703,7 @@ namespace librealsense
 
                             result_profiles.push_back(cloned_profile);
 
-                            //_source_to_target_profiles_map[profile][target_fmt._fmt] = cloned_profile;
+                            //_source_to_target_profiles_map[profile][target.format] = cloned_profile;
                             //_target_to_source_profiles_map[cloned_profile] = profile;
                         }
                     }
@@ -1748,91 +1750,25 @@ namespace librealsense
         return {best_match_processing_block_factory, best_match_requests};
     }
 
+    std::unordered_set<std::shared_ptr<stream_profile_interface>> synthetic_sensor::map_requests_to_source_profiles(stream_profiles requests)
+    {
+        std::unordered_set<std::shared_ptr<stream_profile_interface>> mapped_source_profiles;
+        for (auto req : requests)
+        {
+            stream_output_info output_info(req);
+            auto mapped_profiles = _target_to_source_profiles_map[output_info];
+            mapped_source_profiles.insert(begin(mapped_profiles), end(mapped_profiles));
+        }
+
+        return mapped_source_profiles;
+    }
+
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
     {
         std::unordered_set<std::shared_ptr<stream_profile_interface>> resolved_req_set;
         stream_profiles resolved_req;
         stream_profiles unhandled_reqs(requests);
         
-        //for (auto req : requests)
-        //{
-        //    if (unhandled_reqs.empty())
-        //        break;
-
-        //    // add only the profiles which are mendatory for a request.
-        //    //resolved_req_set.insert(mapped_source_profile);
-
-        //    // cache the request
-        //    cached_requests[req->get_format()].push_back(req);
-
-        //    // generate matching processing blocks
-        //    for (auto pb : _pb_factories)
-        //    {
-        //        //auto pb_sources = pb.get_source_formats();
-
-        //        //// look for a processing block which all of its sources are satisfied by one or more sources mapped request.
-        //        //if (std::find_if(pb_sources.begin(), pb_sources.end(), [&mapped_source_profile](rs2_format fmt) {
-        //        //    return (fmt == mapped_source_profile->get_format());
-        //        //    }) != pb_sources.end())
-        //        //{
-        //        //    _formats_to_processing_block[mapped_source_profile->get_format()] = pb.generate_processing_block();
-        //        //    
-        //        //    // mark as handled and resolved.
-        //        //    auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
-        //        //        return req == sp;
-        //        //    });
-        //        //    unhandled_reqs.erase(unhandled_req);
-        //        //    
-        //        //    break;
-        //        //}
-        //        auto pb_srcs = pb.get_source_formats();
-
-        //        // mapped profiles cannot satisfy this processing block
-        //        if (pb_srcs.size() > mapped_source_profiles.size())
-        //            continue;
-
-        //        // look for all of the matching mapped request profiles to the processing block sources
-        //        // when found a processing block which all of its sources are satisfied, add all of the matching mapped requests
-        //        // to the resolved requests, and generate its function.
-        //        stream_profiles matching_mapped_requests;
-        //        for (auto mapped_source_profile : mapped_source_profiles)
-        //        {
-        //            auto matching_mapped_src_it = std::find_if(pb_srcs.begin(), pb_srcs.end(), 
-        //                [&mapped_source_profile, &matching_mapped_requests](auto fmt) 
-        //            {
-        //                bool match = fmt == mapped_source_profile->get_format();
-        //                if (match)
-        //                    matching_mapped_requests.push_back(mapped_source_profile);
-        //                return match;
-        //            });
-        //            // delete from vector
-        //            if (matching_mapped_src_it != pb_srcs.end())
-        //                pb_srcs.erase(matching_mapped_src_it);
-        //        }
-        //        // check if all of the processing block sources were found
-        //        if (pb_srcs.empty())
-        //        {
-        //            // add resolved requests
-        //            resolved_req_set.insert(matching_mapped_requests.begin(), matching_mapped_requests.end());
-
-        //            // generate the relevant processing block function
-        //            std::vector<rs2_format> fmts;
-        //            for (auto matching_req : matching_mapped_requests)
-        //                fmts.push_back(matching_req->get_format());
-        //            _formats_to_processing_block[fmts] = pb.generate_processing_block();
-
-        //            // mark as an handled request
-        //            auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
-        //                return req == sp;
-        //            });
-        //            unhandled_reqs.erase(unhandled_req);
-
-        //            // completed this request
-        //            break;
-        //        }
-        //    }
-        //}
-
         /////////////////////////////////////////////
         
         // cache the requests
@@ -1845,12 +1781,7 @@ namespace librealsense
         while (!unhandled_reqs.empty())
         {
             // union the mapped request to source profiles
-            std::unordered_set<std::shared_ptr<stream_profile_interface>> mapped_source_profiles;
-            for (auto unhandled_req : unhandled_reqs)
-            {
-                auto mapped_profiles = _target_to_source_profiles_map[unhandled_req];
-                mapped_source_profiles.insert(begin(mapped_profiles), end(mapped_profiles));
-            }
+            auto mapped_source_profiles = map_requests_to_source_profiles(unhandled_reqs);
 
             // find the best fitting processing block - the one which resolves the most requests.
             auto best_match_mapped = find_requests_best_match({ mapped_source_profiles.begin(), mapped_source_profiles.end() });
@@ -1858,17 +1789,22 @@ namespace librealsense
             auto best_mapped_reqs = best_match_mapped.second;
             auto best_pb_sources = best_pb.get_source_formats();
 
-            // generate this processing block to the cached processing blocks.
+            // generate this processing block and append it to the cached processing blocks.
             _formats_to_processing_block[best_pb_sources] = best_pb.generate_processing_block();
             
             // mark as handled resolved requests
             resolved_req_set.insert(begin(best_mapped_reqs), end(best_mapped_reqs));
-            for (auto req : unhandled_reqs)
-            {            
-                auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
-                    return req == sp;
-                });
-                unhandled_reqs.erase(unhandled_req);
+            for (auto mapped_req : best_mapped_reqs)
+            {
+                auto reqs = _source_to_target_profiles_map[mapped_req];
+                for (auto req : reqs)
+                {
+                    auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
+                        return req == sp;
+                    });
+                    if (unhandled_req != end(unhandled_reqs))
+                        unhandled_reqs.erase(unhandled_req);
+                }
             }
         }
         
@@ -1942,9 +1878,6 @@ namespace librealsense
             else
                 return;
 
-
-            //f.frame->set_stream(cached[f.format]); // TODO - Ariel - Fix this and remove from rs.cpp workaround -- problem, Y8I before process, Y8 & Y8 after process
-            //f->set_stream(cached_profile);
             callback->on_frame((rs2_frame*)f.frame);
         });
 
@@ -2013,9 +1946,9 @@ namespace librealsense
         cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }
 
-    void synthetic_sensor::register_processing_block(std::vector<rs2_format> from, std::vector<processing_block_factory::pbf_target> to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func)
+    void synthetic_sensor::register_processing_block(std::vector<rs2_format> from, std::vector<stream_output_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func)
     {
-        processing_block_factory pbf(from, to, stream, generate_func);
+        processing_block_factory pbf(from, to, generate_func);
         _pb_factories.push_back(pbf);
     }
 
@@ -2050,8 +1983,8 @@ namespace librealsense
     //    }
     //}
 
-    processing_block_factory::processing_block_factory(std::vector<rs2_format> from, std::vector<pbf_target> to, rs2_stream stream, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
-        _source_formats(from), _target_formats(to), _target_stream(stream), generate_processing_block(generate_func)
+    processing_block_factory::processing_block_factory(std::vector<rs2_format> from, std::vector<stream_output_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
+        _source_formats(from), _target_formats(to), generate_processing_block(generate_func)
     {
     }
 
@@ -2110,8 +2043,6 @@ namespace librealsense
                 return req->get_format() == src;
             }) != end(srcs))
                 satisfied_req.push_back(req);
-            else
-                return stream_profiles();
         }
         return satisfied_req;
     }
@@ -2120,7 +2051,75 @@ namespace librealsense
     {
         _source_formats = rhs.get_source_formats();
         _target_formats = rhs.get_target_formats();
-        _target_stream = rhs.get_target_stream();
         generate_processing_block = rhs.generate_processing_block;
+    }
+
+    stream_output_info::stream_output_info(std::shared_ptr<stream_profile_interface> sp)
+    {
+        width = 0;
+        height = 0;
+        auto vsp = std::dynamic_pointer_cast<video_stream_profile>(sp);
+        if (vsp)
+        {
+            height = vsp->get_height();
+            width = vsp->get_width();
+        }
+        fps = sp->get_framerate();
+        format = sp->get_format();
+        stream = sp->get_stream_type();
+        index = sp->get_stream_index();
+    }
+
+    stream_output_info::stream_output_info(const stream_output_info & other)
+    {
+        copy(other);
+    }
+
+    bool stream_output_info::operator==(const stream_output_info & rhs)
+    {
+        return rhs.format == format &&
+            rhs.stream == stream &&
+            rhs.width == width &&
+            rhs.height == height &&
+            rhs.fps == fps &&
+            rhs.index == index;
+    }
+
+    void stream_output_info::copy(const stream_output_info & other)
+    {
+        format = other.format;
+        stream = other.stream;
+        width = other.width;
+        height = other.height;
+        index = other.index;
+        fps = other.fps;
+    }
+
+    stream_output_info & stream_output_info::operator=(const stream_output_info & rhs)
+    {
+        if (this == &rhs)
+            return *this;
+
+        copy(rhs);
+        return *this;
+    }
+
+    bool operator<(const stream_output_info & lhs, const stream_output_info & rhs)
+    {
+        return lhs.format < rhs.format ||
+            lhs.index < rhs.index ||
+            lhs.width < rhs.width ||
+            lhs.height < rhs.height ||
+            lhs.fps < rhs.fps ||
+            lhs.stream < rhs.stream;
+    }
+    bool operator==(const stream_output_info & lhs, const stream_output_info & rhs)
+    {
+        return rhs.format == lhs.format &&
+            rhs.stream == lhs.stream &&
+            rhs.width == lhs.width &&
+            rhs.height == lhs.height &&
+            rhs.fps == lhs.fps &&
+            rhs.index == lhs.index;
     }
 }

@@ -149,27 +149,48 @@ namespace librealsense
 
     class processing_block;
 
-    class processing_block_factory
+    struct stream_output_info
     {
-    public:
-        struct pbf_target
-        {
-            pbf_target(rs2_format fmt, int idx) : _fmt(fmt), _idx(idx) {};
-            rs2_format _fmt;
-            int _idx;
+        stream_output_info(rs2_format fmt, rs2_stream strm, int idx, int w = 0, int h = 0, int framerate = 0) :
+            format(fmt), stream(strm), index(idx), width(w), height(h), fps(framerate) {};
+        stream_output_info(std::shared_ptr<stream_profile_interface> sp);
+        stream_output_info(const stream_output_info& other);
 
-            bool operator==(const pbf_target& rhs)
+        bool operator==(const stream_output_info& rhs);
+        stream_output_info& operator=(const stream_output_info& rhs);
+        void copy(const stream_output_info& other);
+
+        struct hash
+        {
+            std::size_t operator()(const stream_output_info& rhs) const
             {
-                return rhs._fmt == _fmt &&
-                    rhs._idx == _idx;
+                using std::hash;
+                return ((hash<int>()(rhs.format)
+                    ^ (hash<int>()(rhs.index) << 1)) >> 1)
+                    ^ (hash<int>()(rhs.width) << 1)
+                    ^ ((hash<int>()(rhs.height)
+                        ^ (hash<int>()(rhs.fps) << 1)) >> 1)
+                    ^ (hash<int>()(rhs.stream) << 1);
             }
         };
 
+        rs2_format format;
+        rs2_stream stream;
+        int width;
+        int height;
+        int fps;
+        int index;
+    };
+    bool operator<(const stream_output_info& lhs, const stream_output_info& rhs);
+    bool operator==(const stream_output_info& lhs, const stream_output_info& rhs);
+
+    class processing_block_factory
+    {
+    public:
         processing_block_factory() {};
 
         processing_block_factory(std::vector<rs2_format> from,
-            std::vector<pbf_target> to,
-            rs2_stream stream,
+            std::vector<stream_output_info> to,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
         processing_block_factory(const processing_block_factory& rhs);
@@ -177,8 +198,7 @@ namespace librealsense
         std::function<std::shared_ptr<processing_block>(void)> generate_processing_block; // TODO - Ariel - maybe lazy?
 
         std::vector<rs2_format> get_source_formats() const { return _source_formats; }
-        std::vector<pbf_target> get_target_formats() const { return _target_formats; }
-        rs2_stream get_target_stream() const { return _target_stream; }
+        std::vector<stream_output_info> get_target_formats() const { return _target_formats; }
 
         processing_block_factory& operator=(const processing_block_factory& rhs);
 
@@ -188,7 +208,7 @@ namespace librealsense
 
     protected:
         std::vector<rs2_format> _source_formats;
-        std::vector<pbf_target> _target_formats;
+        std::vector<stream_output_info> _target_formats;
         rs2_stream _target_stream;
 
     private:
@@ -217,14 +237,14 @@ namespace librealsense
         void stop() override;
 
         void register_processing_block(std::vector<rs2_format> from,
-            std::vector<processing_block_factory::pbf_target> to,
-            rs2_stream stream,
+            std::vector<stream_output_info> to,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
         std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
 
-        std::map<std::shared_ptr<stream_profile_interface>, std::map<rs2_format, std::shared_ptr<stream_profile_interface>>> _source_to_target_profiles_map;
-        std::map<std::shared_ptr<stream_profile_interface>, stream_profiles> _target_to_source_profiles_map;
+        //std::map<std::shared_ptr<stream_profile_interface>, std::map<stream_output_info, std::shared_ptr<stream_profile_interface>>> _source_to_target_profiles_map;
+        std::map<std::shared_ptr<stream_profile_interface>, stream_profiles> _source_to_target_profiles_map;
+        std::unordered_map<stream_output_info, stream_profiles, stream_output_info::hash> _target_to_source_profiles_map;
         std::unordered_map<rs2_format, stream_profiles> cached_requests;
 
     private:
@@ -232,6 +252,7 @@ namespace librealsense
         std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_holder& f);
         void sort_profiles_by_resolution(stream_profiles * profiles);
         std::pair<processing_block_factory, stream_profiles> find_requests_best_match(stream_profiles sp);
+        std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(stream_profiles requests);
 
         std::mutex _configure_lock;
 
