@@ -1533,50 +1533,6 @@ namespace librealsense
         return RS2_TIMESTAMP_DOMAIN_SYSTEM_TIME;
     }
 
-
-    //// TODO - Ariel - move to another file?
-    //request::request(stream_profile sp)
-    //{
-    //    _resolved_request = resolve(sp);
-    //}
-
-    //stream_profile_base request::resolve(std::shared_ptr<stream_profile_interface> sp)
-    //{
-    //    // translate requests formats into fourcc formats
-    //    stream_profile_base* resolved_req_ptr = dynamic_cast<stream_profile_base*>(sp.get());
-    //    stream_profile_base resolved_req = resolved_req_ptr ? *resolved_req_ptr :
-    //        throw invalid_value_exception("Trying to resolve an empty request.");
-
-    //    auto&& const profiles = get_stream_profiles();
-
-    //        for (auto&& const entry : _fourcc_to_rs2_format)
-    //        {
-    //            auto fourcc_format = entry.first;
-    //            auto rs2_format = entry.second;
-    //            if (rs2_format == req->get_format())
-    //            {
-    //                // TODO - think to change to O(n^2) instead of O(n^3)
-    //                auto it = std::find_if(profiles.begin(), profiles.end(), [&fourcc_format](std::shared_ptr<stream_profile_interface> sp)
-    //                {
-    //                    auto backend_profile = dynamic_cast<backend_stream_profile*>(sp.get());
-    //                    return fourcc_format == backend_profile->get_backend_profile().format;
-    //                });
-
-    //                if (it == profiles.end())
-    //                    throw invalid_value_exception("Request format is not supported by the device!");
-
-    //                auto profile = dynamic_cast<backend_stream_profile*>((*it).get())->get_backend_profile();
-    //                resolved_req.push_back(profile);
-    //                // TODO - handle request errors 
-    //                //requests.erase(req);
-    //            }
-    //        }
-
-    //    return resolved_req;
-
-
-    //}
-
     synthetic_sensor::synthetic_sensor(std::string name, std::shared_ptr<sensor_base> sensor,
         device* device) : sensor_base(name, device, (recommended_proccesing_blocks_interface*)this), _raw_sensor(std::move(sensor))
     {}
@@ -1709,19 +1665,8 @@ namespace librealsense
                     }
                 }
             }
-            
-            //    out = pbf.outputs
-            //
-            //    foreach in:
-            //        foreach p in profiles:
-            //            if p matches in:
-            //                foreach out:
-            //                    O = clone out
-            //                    foreach feild in p
-            //                        if not placeholder
-            //                            O.feild = p.feild
-            //                    add O
         }
+
         _owner->tag_profiles(result_profiles);
         sort_profiles_by_resolution(&result_profiles);
         return result_profiles;
@@ -1793,7 +1738,7 @@ namespace librealsense
             _formats_to_processing_block[best_pb_sources] = best_pb.generate_processing_block();
             
             // mark as handled resolved requests
-            resolved_req_set.insert(begin(best_mapped_reqs), end(best_mapped_reqs));
+            //resolved_req_set.insert(begin(best_mapped_reqs), end(best_mapped_reqs));
             for (auto mapped_req : best_mapped_reqs)
             {
                 auto reqs = _source_to_target_profiles_map[mapped_req];
@@ -1805,6 +1750,7 @@ namespace librealsense
                     if (unhandled_req != end(unhandled_reqs))
                         unhandled_reqs.erase(unhandled_req);
                 }
+                resolved_req_set.insert(mapped_req);
             }
         }
         

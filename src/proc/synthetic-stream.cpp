@@ -410,4 +410,40 @@ namespace librealsense
 
         return res;
     }
+
+    composite_processing_block::composite_processing_block(std::vector<std::shared_ptr<processing_block>> processing_blocks) :
+        composite_processing_block(processing_blocks, "Composite Processing Block")
+    {}
+
+    composite_processing_block::composite_processing_block(std::vector<std::shared_ptr<processing_block>> processing_blocks, const char * name) :
+        processing_block(name), _processing_blocks(processing_blocks)
+    {}
+
+    void composite_processing_block::set_output_callback(frame_callback_ptr callback)
+    {
+        // Each processing block will process the preceding processing block output frame.
+        size_t i = 0;
+        for (i = 1; i < _processing_blocks.size(); i++)
+        {
+            auto output_cb = [i, this](frame_holder fh) {
+                _processing_blocks[i]->invoke(std::move(fh));
+            };
+            _processing_blocks[i - 1]->set_output_callback(std::make_shared<internal_frame_callback<decltype(output_cb)>>(output_cb));
+        }
+
+        // Set the output callback of the composite processing block as last processing block in the vector.
+        _processing_blocks.back()->set_output_callback(callback);
+    }
+
+    void composite_processing_block::invoke(frame_holder frames)
+    {
+        // Invoke the first processing block.
+        // This will trigger processing the frame in a chain by the order of the given processing blocks vector.
+        _processing_blocks.front()->invoke(std::move(frames));
+    }
+
+    void composite_processing_block::append(std::shared_ptr<processing_block> pb)
+    {
+        _processing_blocks.push_back(pb);
+    }
 }

@@ -144,6 +144,22 @@ namespace librealsense
     protected:
         bool should_process(const rs2::frame& frame) override;
     };
+
+    class LRS_EXTENSION_API composite_processing_block : public processing_block
+    {
+    public:
+        composite_processing_block(std::vector<std::shared_ptr<processing_block>> processing_blocks);
+        composite_processing_block(std::vector<std::shared_ptr<processing_block>> processing_blocks, const char* name);
+        virtual ~composite_processing_block() { _source.flush(); };
+
+        void set_output_callback(frame_callback_ptr callback) override;
+        void invoke(frame_holder frames) override;
+
+        void append(std::shared_ptr<processing_block> pb);
+
+    protected:
+        std::vector<std::shared_ptr<processing_block>> _processing_blocks;
+    };
 }
 
 // API structures

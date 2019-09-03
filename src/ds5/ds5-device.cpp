@@ -29,6 +29,7 @@
 #include "proc/temporal-filter.h"
 #include "proc/y8i-to-y8y8.h"
 #include "proc/identity-processing-block.h"
+#include "proc/syncer-processing-block.h"
 #include "proc/hole-filling-filter.h"
 #include "../common/fw/firmware-version.h"
 #include "fw-update/fw-update-unsigned.h"
@@ -536,16 +537,9 @@ namespace librealsense
         auto smart_depth_ep = std::make_shared<ds5_depth_sensor>(this, depth_ep);
         smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        smart_depth_ep->register_processing_block(
-            { RS2_FORMAT_Z16 },
-            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
-            []() { return std::make_shared<identity_processing_block>(); }
-        );
-
         //smart_depth_ep->register_processing_block(
-        //    { RS2_FORMAT_Z16, RS2_FORMAT_Y8I },
-        //    { {RS2_FORMAT_ANY, 1} },
-        //    RS2_STREAM_DEPTH,
+        //    { RS2_FORMAT_Z16 },
+        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
         //    []() { return std::make_shared<identity_processing_block>(); }
         //);
 
@@ -562,21 +556,23 @@ namespace librealsense
         );
 
         //smart_depth_ep->register_processing_block(
-        //    { RS2_FORMAT_Y8, RS2_FORMAT_Z16 },
-        //    {{RS2_FORMAT_Z16, 0} },
-        //    RS2_STREAM_DEPTH,
-        //    []() {
-        //        //return make_shared<zo_plus_syncer>();
+        //    { RS2_FORMAT_Z16, RS2_FORMAT_Y8I },
+        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
+        //    []() { return std::make_shared<identity_processing_block>(); }
+        //);
 
-        //        //auto zo = std::make_shared<zero_order>();
+        smart_depth_ep->register_processing_block(
+            { RS2_FORMAT_Y8, RS2_FORMAT_Z16 },
+            {{RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
+            []() {
+                //return make_shared<zo_plus_syncer>();
+                auto syncer = std::make_shared<syncer_process_unit>();
+                // zero order
+                std::vector<std::shared_ptr<processing_block>> pb_list { syncer };
+                auto cpb = std::make_shared<composite_processing_block>(pb_list);
 
-        //        //auto s = std::make_shared<syncer>();
-
-        //        //s.set_output_callback([zo](f) { zo.invoke(f); });
-
-        //        //return s;
-        //        return std::make_shared<identity_processing_block>();
-        //    });
+                return cpb;
+            });
 
 
         return smart_depth_ep;
