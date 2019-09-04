@@ -1615,13 +1615,13 @@ namespace librealsense
         for (auto&& pbf : _pb_factories)
         {
             //    in = pbf.input
-            auto&& sources = pbf.get_source_info();
-            auto&& targets = pbf.get_target_info();
+            auto& sources = pbf.get_source_info();
+            auto& targets = pbf.get_target_info();
 
-            for (auto&& source : sources)
+            for (auto& source : sources)
             {
                 // add profiles that are supported by the device
-                for (auto&& profile : profiles)
+                for (auto& profile : profiles)
                 {
                     auto vsp = std::dynamic_pointer_cast<video_stream_profile>(profile);
                     if (profile->get_format() == source.format)
@@ -1702,59 +1702,100 @@ namespace librealsense
 
     std::pair<processing_block_factory, stream_profiles> synthetic_sensor::find_requests_best_match(stream_profiles requests)
     {
-        // best fitting processing block is defined as the processing block which its sources
-        // covers the maximum amount of requests given with the minimum targets streaming.
+        //// best fitting processing block is defined as the processing block which its sources
+        //// covers the maximum amount of requests.
 
-        // find the max count of resolvable requests
-        int max_count = 0;
-        for (auto&& pbf : _pb_factories)
-        {
-            int count = 0;
-            count = pbf.find_satisfied_requests(requests).size();
-            if (count > max_count)
-                max_count = count;
-        }
+        stream_profiles best_match_requests;
+        processing_block_factory best_match_processing_block_factory;
 
-        // find all the processing block factories which resolves the maximum amount of requests
-        std::vector<std::pair<processing_block_factory, stream_profiles>> max_satisfied_requests;
+        int max_satisfied_req = 0;
+        int best_source_size = 0;
+        int count = 0;
         for (auto&& pbf : _pb_factories)
         {
             auto satisfied_req = pbf.find_satisfied_requests(requests);
-            if (satisfied_req.size() == max_count)
-                max_satisfied_requests.push_back({ pbf, satisfied_req });
-        }
-
-        // find the processing block which requires minimum required sources
-        int min_sources = INT_MAX;
-        std::vector<std::pair<processing_block_factory, stream_profiles>> min_required_sources;
-        for (auto&& entry : max_satisfied_requests)
-        {
-            auto reqs = entry.second;
-            auto pbf = entry.first;
-            int current = pbf.get_source_info().size();
-            if (current < min_sources)
+            count = satisfied_req.size();
+            if (count > max_satisfied_req
+                || (count == max_satisfied_req
+                    && pbf.get_source_info().size() < best_source_size))
             {
-                min_sources = current;
-                min_required_sources.push_back({pbf, reqs});
+                max_satisfied_req = count;
+                best_source_size = pbf.get_source_info().size();
+                best_match_processing_block_factory = pbf;
+                best_match_requests = satisfied_req;
             }
         }
+
+        //std::vector<std::pair<processing_block_factory, stream_profiles>> min_required_sources;
+        //int best_source_size = 0;
+        //int max_satisfied_req = 0;
+        //int count = 0;
+        //for (auto&& pbf : _pb_factories)
+        //{
+        //    auto satisfied_req = pbf.find_satisfied_requests(requests);
+        //    count = satisfied_req.size();
+        //    if (count > max_satisfied_req
+        //        || (count == max_satisfied_req
+        //            && pbf.get_source_info().size() < best_source_size))
+        //    {
+        //        max_satisfied_req = count;
+        //        best_source_size = pbf.get_source_info().size();
+        //        min_required_sources.push_back({ pbf, satisfied_req });
+        //    }
+        //}
+
+
+
+        //// find the max count of resolvable requests
+        //int max_count = 0;
+        //for (auto&& pbf : _pb_factories)
+        //{
+        //    int count = 0;
+        //    count = pbf.find_satisfied_requests(requests).size();
+        //    if (count > max_count)
+        //        max_count = count;
+        //}
+
+        //// find all the processing block factories which resolves the maximum amount of requests
+        //std::vector<std::pair<processing_block_factory, stream_profiles>> max_satisfied_requests;
+        //for (auto&& pbf : _pb_factories)
+        //{
+        //    auto satisfied_req = pbf.find_satisfied_requests(requests);
+        //    if (satisfied_req.size() == max_count)
+        //        max_satisfied_requests.push_back({ pbf, satisfied_req });
+        //}
+
+        //// find the processing block which requires minimum required sources
+        //int min_sources = INT_MAX;
+
+        //for (auto&& entry : max_satisfied_requests)
+        //{
+        //    auto reqs = entry.second;
+        //    auto pbf = entry.first;
+        //    int current = pbf.get_source_info().size();
+        //    if (current < min_sources)
+        //    {
+        //        min_sources = current;
+        //        min_required_sources.push_back({pbf, reqs});
+        //    }
+        //}
 
         // find the pbf which has the maximum targets processing capability
-        int max_targets = 0;
-        stream_profiles best_match_requests;
-        processing_block_factory best_match_processing_block_factory;
-        for (auto&& entry : min_required_sources)
-        {
-            auto reqs = entry.second;
-            auto pbf = entry.first;
-            int current = pbf.get_target_info().size();
-            if (current > max_targets)
-            {
-                max_targets = current;
-                best_match_processing_block_factory = pbf;
-                best_match_requests = reqs;
-            }
-        }
+        //int max_targets = 0;
+        //stream_profiles best_match_requests;
+        //processing_block_factory best_match_processing_block_factory;
+        //for (auto&& entry : min_required_sources)
+        //{
+        //    auto reqs = entry.second;
+        //    auto pbf = entry.first;
+        //    int current = pbf.get_target_info().size();
+        //    if (current > max_targets)
+        //    {
+        //        max_targets = current;
+        //        best_match_processing_block_factory = pbf;
+        //        best_match_requests = reqs;
+        //    }
+        //}
 
         return {best_match_processing_block_factory, best_match_requests};
     }
@@ -1790,8 +1831,6 @@ namespace librealsense
         stream_profiles resolved_req;
         stream_profiles unhandled_reqs(requests);
         
-        /////////////////////////////////////////////
-        
         // cache the requests
         for (auto req : requests)
         {
@@ -1801,33 +1840,37 @@ namespace librealsense
         // while not finished handling all of the requests do
         while (!unhandled_reqs.empty())
         {
-            // union the mapped request to source profiles
-            auto mapped_source_profiles = map_requests_to_source_profiles(unhandled_reqs);
+            //// union the mapped request to source profiles
+            //auto mapped_source_profiles = map_requests_to_source_profiles(unhandled_reqs);
 
             // find the best fitting processing block - the one which resolves the most requests.
-            auto best_match_mapped = find_requests_best_match({ mapped_source_profiles.begin(), mapped_source_profiles.end() });
-            auto best_pb = best_match_mapped.first;
-            auto best_mapped_reqs = best_match_mapped.second;
-            auto best_pb_sources = convert_to_stream_info(best_mapped_reqs);
-
-            // generate this processing block and append it to the cached processing blocks.
-            _formats_to_processing_block[best_pb_sources] = best_pb.generate_processing_block();
+            auto best_match = find_requests_best_match(unhandled_reqs);
+            auto best_pb = best_match.first;
+            auto best_reqs = best_match.second;
+            auto best_pb_targets = convert_to_stream_info(best_reqs);
             
             // mark as handled resolved requests
-            //resolved_req_set.insert(begin(best_mapped_reqs), end(best_mapped_reqs));
-            for (auto mapped_req : best_mapped_reqs)
+            for (auto req : best_reqs)
             {
-                auto reqs = _source_to_target_profiles_map[mapped_req];
-                for (auto req : reqs)
-                {
-                    auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
-                        return stream_info(req) == stream_info(sp);
-                    });
-                    if (unhandled_req != end(unhandled_reqs))
-                        unhandled_reqs.erase(unhandled_req);
-                }
-                resolved_req_set.insert(mapped_req);
+                auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
+                    return stream_info(req) == stream_info(sp);
+                });
+                if (unhandled_req != end(unhandled_reqs))
+                    unhandled_reqs.erase(unhandled_req);                   
             }
+
+            for (auto target : best_pb_targets)
+            {
+                auto mapped_source_profiles = _target_to_source_profiles_map[target];
+                for (auto profile : mapped_source_profiles)
+                {
+                    if (best_pb.has_source(profile))
+                        resolved_req_set.insert(profile);
+                }
+
+            }
+            // generate this processing block and append it to the cached processing blocks.
+            _formats_to_processing_block[best_pb.get_source_info()] = best_pb.generate_processing_block();
         }
         
         resolved_req = { resolved_req_set.begin(), resolved_req_set.end() };
@@ -1849,6 +1892,7 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
         _raw_sensor->close();
+        _formats_to_processing_block.erase(begin(_formats_to_processing_block), end(_formats_to_processing_block));
         // TODO - Ariel - reset stream to processing block map
     }
 
@@ -2049,21 +2093,42 @@ namespace librealsense
         return true;
     }
 
+    bool processing_block_factory::has_source(std::shared_ptr<stream_profile_interface> source)
+    {
+        for (auto s : _source_info)
+        {
+            if (source->get_format() == s.format)
+                return true;
+        }
+        return false;
+    }
+
     stream_profiles processing_block_factory::find_satisfied_requests(stream_profiles requests)
     {
         // Return all requests which satisfies the processing block.
         // a processing block is satisfied, if ALL of its sources found a match with a request.
 
-        if (requests.size() < _source_info.size())
-            return stream_profiles();
+        //if (requests.size() < _source_info.size())
+        //    return stream_profiles();
+
+        //stream_profiles satisfied_req;
+        //auto srcs = _source_info;
+        //for (auto&& req : requests)
+        //{
+        //    if (std::find_if(begin(srcs), end(srcs), [&req](auto src) {
+        //        return req->get_format() == src.format;
+        //    }) != end(srcs))
+        //        satisfied_req.push_back(req);
+        //}
+        //return satisfied_req;
 
         stream_profiles satisfied_req;
-        auto srcs = _source_info;
+        auto tgts = _target_info;
         for (auto&& req : requests)
         {
-            if (std::find_if(begin(srcs), end(srcs), [&req](auto src) {
-                return req->get_format() == src.format;
-            }) != end(srcs))
+            if (std::find_if(begin(tgts), end(tgts), [&req](auto tgt) {
+                return req->get_format() == tgt.format;
+            }) != end(tgts))
                 satisfied_req.push_back(req);
         }
         return satisfied_req;
@@ -2128,12 +2193,8 @@ namespace librealsense
 
     bool operator<(const stream_info & lhs, const stream_info & rhs)
     {
-        return lhs.format < rhs.format ||
-            lhs.index < rhs.index ||
-            lhs.width < rhs.width ||
-            lhs.height < rhs.height ||
-            lhs.fps < rhs.fps ||
-            lhs.stream < rhs.stream;
+        return (lhs.format < rhs.format ||
+            lhs.index < rhs.index && lhs.format != rhs.format);
     }
     bool operator==(const stream_info & lhs, const stream_info & rhs)
     {

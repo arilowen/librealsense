@@ -205,6 +205,7 @@ namespace librealsense
         bool operator==(const processing_block_factory& rhs);
 
         stream_profiles find_satisfied_requests(stream_profiles sp);
+        bool has_source(std::shared_ptr<stream_profile_interface> source);
 
     protected:
         std::vector<stream_info> _source_info;
