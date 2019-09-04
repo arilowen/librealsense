@@ -537,20 +537,20 @@ namespace librealsense
         auto smart_depth_ep = std::make_shared<ds5_depth_sensor>(this, depth_ep);
         smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        //smart_depth_ep->register_processing_block(
-        //    { RS2_FORMAT_Z16 },
-        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
-        //    []() { return std::make_shared<identity_processing_block>(); }
-        //);
+        smart_depth_ep->register_processing_block(
+            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH} },
+            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
+            []() { return std::make_shared<identity_processing_block>(); }
+        );
 
         smart_depth_ep->register_processing_block(
-            { RS2_FORMAT_Y8I },
+            { {RS2_FORMAT_Y8I, RS2_STREAM_INFRARED} },
             { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
             []() { return std::make_shared<y8i_to_y8y8>(); 
         });
 
         smart_depth_ep->register_processing_block(
-            { RS2_FORMAT_Y8 },
+            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED} },
             { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
             []() { return std::make_shared<identity_processing_block>(); }
         );
@@ -561,18 +561,32 @@ namespace librealsense
         //    []() { return std::make_shared<identity_processing_block>(); }
         //);
 
-        smart_depth_ep->register_processing_block(
-            { RS2_FORMAT_Y8, RS2_FORMAT_Z16 },
-            {{RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
-            []() {
-                //return make_shared<zo_plus_syncer>();
-                auto syncer = std::make_shared<syncer_process_unit>();
-                // zero order
-                std::vector<std::shared_ptr<processing_block>> pb_list { syncer };
-                auto cpb = std::make_shared<composite_processing_block>(pb_list);
+        //smart_depth_ep->register_processing_block(
+        //    { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED}, {RS2_FORMAT_Z16, RS2_STREAM_DEPTH} },
+        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0}, {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
+        //    []() {
+        //        //return make_shared<zo_plus_syncer>();
+        //        auto syncer = std::make_shared<syncer_process_unit>();
+        //        // zero order
+        //        std::vector<std::shared_ptr<processing_block>> pb_list { syncer };
+        //        auto cpb = std::make_shared<composite_processing_block>(pb_list);
 
-                return cpb;
-            });
+        //        return cpb;
+        //    });
+
+        //smart_depth_ep->register_processing_block(
+        //    { {RS2_FORMAT_Y8I}, {RS2_FORMAT_Z16} },
+        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0}, {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1}, {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
+        //    []() {
+        //    //return make_shared<zo_plus_syncer>();
+        //    auto y8i = std::make_shared<y8i_to_y8y8>();
+        //    auto syncer = std::make_shared<syncer_process_unit>();
+        //    // zero order
+        //    std::vector<std::shared_ptr<processing_block>> pb_list{ y8i, syncer };
+        //    auto cpb = std::make_shared<composite_processing_block>(pb_list);
+
+        //    return cpb;
+        //});
 
 
         return smart_depth_ep;

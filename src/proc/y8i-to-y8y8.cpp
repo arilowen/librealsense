@@ -24,6 +24,15 @@ namespace librealsense
         // define and set the frame processing callback
         auto process_callback = [&](frame_holder frame, synthetic_source_interface* source)
         {
+            // passthrough the frame if we don't need to process it.
+            if (frame->get_stream()->get_format() != RS2_FORMAT_Y8I)
+            {
+                // maybe need to allocate either way
+                source->frame_ready(std::move(frame));
+                return;
+            }
+
+            // process the frame
             auto profile = As<video_stream_profile, stream_profile_interface>(frame.frame->get_stream());
             auto lp = std::make_shared<video_stream_profile>(profile->get_backend_profile());
             auto rp = std::make_shared<video_stream_profile>(profile->get_backend_profile());
@@ -54,6 +63,7 @@ namespace librealsense
             source->frame_ready(std::move(lf));
             source->frame_ready(std::move(rf));
         };
+
         set_processing_callback(std::shared_ptr<rs2_frame_processor_callback>(
             new internal_frame_processor_callback<decltype(process_callback)>(process_callback)));
     }

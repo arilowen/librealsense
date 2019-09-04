@@ -1584,6 +1584,24 @@ namespace librealsense
         });
     }
 
+    std::shared_ptr<stream_profile_interface> clone_profile(std::shared_ptr<stream_profile_interface> profile)
+    {
+        auto cloned = profile->clone();
+
+        auto vsp = std::dynamic_pointer_cast<video_stream_profile>(cloned);
+        if (vsp)
+        {
+            vsp->set_dims(vsp->get_width(), vsp->get_height());
+        }
+        cloned->set_unique_id(profile->get_unique_id());
+        cloned->set_format(profile->get_format());
+        cloned->set_stream_index(profile->get_stream_index());
+        cloned->set_stream_type(profile->get_stream_type());
+        cloned->set_framerate(profile->get_framerate());
+
+        return cloned;
+    }
+
     stream_profiles synthetic_sensor::init_stream_profiles()
     {
         stream_profiles result_profiles;
@@ -1597,22 +1615,26 @@ namespace librealsense
         for (auto&& pbf : _pb_factories)
         {
             //    in = pbf.input
-            auto sources = pbf.get_source_formats();
-            auto targets = pbf.get_target_formats();
+            auto&& sources = pbf.get_source_info();
+            auto&& targets = pbf.get_target_info();
 
-            for (auto&& source_fmt : sources)
+            for (auto&& source : sources)
             {
                 // add profiles that are supported by the device
                 for (auto&& profile : profiles)
                 {
                     auto vsp = std::dynamic_pointer_cast<video_stream_profile>(profile);
-                    if (profile->get_format() == source_fmt)
+                    if (profile->get_format() == source.format)
                     {
                         for (auto&& target : targets)
                         {
                             target.fps = profile->get_framerate();
-                            target.height = vsp->get_height();
-                            target.width = vsp->get_width();
+
+                            if (vsp)
+                            {
+                                target.height = vsp->get_height();
+                                target.width = vsp->get_width();
+                            }
 
                             auto cloned_profile = std::make_shared<video_stream_profile>(vsp->get_backend_profile());
                             //cloned_profile->set_unique_id(profile->get_unique_id());
@@ -1621,7 +1643,7 @@ namespace librealsense
                             cloned_profile->set_stream_index(target.index);
                             cloned_profile->set_stream_type(target.stream);
                             cloned_profile->set_framerate(target.fps);
-
+                            
                             // cache the source to target mapping
                             _source_to_target_profiles_map[profile].push_back(cloned_profile);
                             _target_to_source_profiles_map[target].push_back(profile);
@@ -1647,13 +1669,19 @@ namespace librealsense
                             if (std::find_if(result_profiles.begin(), result_profiles.end(), [&cloned_profile](std::shared_ptr<stream_profile_interface> spi)
                             {
                                 auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
-                                return (sp->get_format() == cloned_profile->get_format() &&
+                                auto cp = std::dynamic_pointer_cast<video_stream_profile>(cloned_profile);
+                                bool res = true;
+
+                                if (sp && cp)
+                                    res = sp->get_height() == cp->get_height() &&
+                                    sp->get_width() == cp->get_width();
+
+                                return (res &&
+                                    sp->get_format() == cloned_profile->get_format() &&
                                     //sp->get_unique_id() == p->get_unique_id() &&
                                     sp->get_stream_index() == cloned_profile->get_stream_index() &&
                                     sp->get_stream_type() == cloned_profile->get_stream_type() &&
-                                    sp->get_height() == cloned_profile->get_height() &&
-                                    sp->get_framerate() == cloned_profile->get_framerate() &&
-                                    sp->get_width() == cloned_profile->get_width());
+                                    sp->get_framerate() == cloned_profile->get_framerate());
                             }) != result_profiles.end())
                                 continue;
 
@@ -1675,20 +1703,56 @@ namespace librealsense
     std::pair<processing_block_factory, stream_profiles> synthetic_sensor::find_requests_best_match(stream_profiles requests)
     {
         // best fitting processing block is defined as the processing block which its sources
-        // covers the maximum amount of requests given.
+        // covers the maximum amount of requests given with the minimum targets streaming.
 
-        stream_profiles best_match_requests;
-        stream_profiles current_best_match_requests;
-
-        processing_block_factory best_match_processing_block_factory;
-
+        // find the max count of resolvable requests
+        int max_count = 0;
         for (auto&& pbf : _pb_factories)
         {
-            current_best_match_requests = pbf.find_satisfied_requests(requests);
-            if (current_best_match_requests.size() > best_match_requests.size())
+            int count = 0;
+            count = pbf.find_satisfied_requests(requests).size();
+            if (count > max_count)
+                max_count = count;
+        }
+
+        // find all the processing block factories which resolves the maximum amount of requests
+        std::vector<std::pair<processing_block_factory, stream_profiles>> max_satisfied_requests;
+        for (auto&& pbf : _pb_factories)
+        {
+            auto satisfied_req = pbf.find_satisfied_requests(requests);
+            if (satisfied_req.size() == max_count)
+                max_satisfied_requests.push_back({ pbf, satisfied_req });
+        }
+
+        // find the processing block which requires minimum required sources
+        int min_sources = INT_MAX;
+        std::vector<std::pair<processing_block_factory, stream_profiles>> min_required_sources;
+        for (auto&& entry : max_satisfied_requests)
+        {
+            auto reqs = entry.second;
+            auto pbf = entry.first;
+            int current = pbf.get_source_info().size();
+            if (current < min_sources)
             {
-                best_match_requests = current_best_match_requests;
+                min_sources = current;
+                min_required_sources.push_back({pbf, reqs});
+            }
+        }
+
+        // find the pbf which has the maximum targets processing capability
+        int max_targets = 0;
+        stream_profiles best_match_requests;
+        processing_block_factory best_match_processing_block_factory;
+        for (auto&& entry : min_required_sources)
+        {
+            auto reqs = entry.second;
+            auto pbf = entry.first;
+            int current = pbf.get_target_info().size();
+            if (current > max_targets)
+            {
+                max_targets = current;
                 best_match_processing_block_factory = pbf;
+                best_match_requests = reqs;
             }
         }
 
@@ -1700,12 +1764,24 @@ namespace librealsense
         std::unordered_set<std::shared_ptr<stream_profile_interface>> mapped_source_profiles;
         for (auto req : requests)
         {
-            stream_output_info output_info(req);
+            stream_info output_info(req);
             auto mapped_profiles = _target_to_source_profiles_map[output_info];
+            for (auto&& map : mapped_profiles)
+                map->set_stream_index(req->get_stream_index());
             mapped_source_profiles.insert(begin(mapped_profiles), end(mapped_profiles));
         }
 
         return mapped_source_profiles;
+    }
+
+    std::vector<stream_info> convert_to_stream_info(stream_profiles profiles)
+    {
+        std::vector<stream_info> res;
+        for (auto profile : profiles)
+        {
+            res.push_back(stream_info(profile));
+        }
+        return res;
     }
 
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
@@ -1732,7 +1808,7 @@ namespace librealsense
             auto best_match_mapped = find_requests_best_match({ mapped_source_profiles.begin(), mapped_source_profiles.end() });
             auto best_pb = best_match_mapped.first;
             auto best_mapped_reqs = best_match_mapped.second;
-            auto best_pb_sources = best_pb.get_source_formats();
+            auto best_pb_sources = convert_to_stream_info(best_mapped_reqs);
 
             // generate this processing block and append it to the cached processing blocks.
             _formats_to_processing_block[best_pb_sources] = best_pb.generate_processing_block();
@@ -1745,7 +1821,7 @@ namespace librealsense
                 for (auto req : reqs)
                 {
                     auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
-                        return req == sp;
+                        return stream_info(req) == stream_info(sp);
                     });
                     if (unhandled_req != end(unhandled_reqs))
                         unhandled_reqs.erase(unhandled_req);
@@ -1809,11 +1885,8 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
 
-        //map<format, sp> cached;
-
         auto output_cb = make_callback([&, callback](frame_holder f) {
             // Filter
-            //if not found cached[f.format] return;
             auto cached_profile = filter_frame_by_requests(f);
 
             if (cached_profile)
@@ -1849,22 +1922,25 @@ namespace librealsense
                     return;
                 // TODO - Ariel - handle multiple requests
                 auto&& pb = pb_entry.second;
-                auto&& requested_fmt = pb_entry.first;
+                auto&& sources_info = pb_entry.first;
 
                 //cached = all_cached[f.frame->get_stream()];
                 //cached_profile = _source_to_target_profiles_map[f->get_stream()][requested_fmt];
 
                 // process only if the frame format matches the processing block source format
-                if (std::find_if(requested_fmt.begin(), requested_fmt.end(), [&f](auto fmt) 
+                auto sp = f->get_stream();
+                auto source_info_it = std::find_if(sources_info.begin(), sources_info.end(), [&f, &sp](auto info)
                 {
-                    return f->get_stream()->get_format() == fmt;
-                }) == requested_fmt.end())
+                    return sp->get_format() == info.format;
+                });
+                if (source_info_it == sources_info.end())
                     continue;
                 //if (f->get_stream()->get_format() != requested_fmt)
                 //    continue;
 
                 //if (pb)
                 //{
+                sp->set_stream_index(source_info_it->index);
                 pb->invoke(std::move(f));
                 //}
                 //else
@@ -1892,7 +1968,7 @@ namespace librealsense
         cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }
 
-    void synthetic_sensor::register_processing_block(std::vector<rs2_format> from, std::vector<stream_output_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func)
+    void synthetic_sensor::register_processing_block(std::vector<stream_info> from, std::vector<stream_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func)
     {
         processing_block_factory pbf(from, to, generate_func);
         _pb_factories.push_back(pbf);
@@ -1929,8 +2005,8 @@ namespace librealsense
     //    }
     //}
 
-    processing_block_factory::processing_block_factory(std::vector<rs2_format> from, std::vector<stream_output_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
-        _source_formats(from), _target_formats(to), generate_processing_block(generate_func)
+    processing_block_factory::processing_block_factory(std::vector<stream_info> from, std::vector<stream_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
+        _source_info(from), _target_info(to), generate_processing_block(generate_func)
     {
     }
 
@@ -1952,8 +2028,8 @@ namespace librealsense
     bool processing_block_factory::operator==(const processing_block_factory & rhs)
     {
 
-        auto&& rhs_src_fmts = rhs.get_source_formats();
-        for (auto src : _source_formats)
+        auto&& rhs_src_fmts = rhs.get_source_info();
+        for (auto src : _source_info)
         {
             if (std::find_if(rhs_src_fmts.begin(), rhs_src_fmts.end(), [&src](auto fmt) {
                 return src == fmt;
@@ -1961,8 +2037,8 @@ namespace librealsense
                 return false;
         }
 
-        auto&& rhs_tgt_fmts = rhs.get_target_formats();
-        for (auto tgt : _target_formats)
+        auto&& rhs_tgt_fmts = rhs.get_target_info();
+        for (auto tgt : _target_info)
         {
             if (std::find_if(rhs_tgt_fmts.begin(), rhs_tgt_fmts.end(), [&tgt](auto rhs_tgt) {
                 return tgt == rhs_tgt;
@@ -1978,15 +2054,15 @@ namespace librealsense
         // Return all requests which satisfies the processing block.
         // a processing block is satisfied, if ALL of its sources found a match with a request.
 
-        if (requests.size() < _source_formats.size())
+        if (requests.size() < _source_info.size())
             return stream_profiles();
 
         stream_profiles satisfied_req;
-        auto srcs = _source_formats;
+        auto srcs = _source_info;
         for (auto&& req : requests)
         {
             if (std::find_if(begin(srcs), end(srcs), [&req](auto src) {
-                return req->get_format() == src;
+                return req->get_format() == src.format;
             }) != end(srcs))
                 satisfied_req.push_back(req);
         }
@@ -1995,12 +2071,12 @@ namespace librealsense
 
     void processing_block_factory::copy_processing_block_factory(const processing_block_factory & rhs)
     {
-        _source_formats = rhs.get_source_formats();
-        _target_formats = rhs.get_target_formats();
+        _source_info = rhs.get_source_info();
+        _target_info = rhs.get_target_info();
         generate_processing_block = rhs.generate_processing_block;
     }
 
-    stream_output_info::stream_output_info(std::shared_ptr<stream_profile_interface> sp)
+    stream_info::stream_info(std::shared_ptr<stream_profile_interface> sp)
     {
         width = 0;
         height = 0;
@@ -2016,12 +2092,12 @@ namespace librealsense
         index = sp->get_stream_index();
     }
 
-    stream_output_info::stream_output_info(const stream_output_info & other)
+    stream_info::stream_info(const stream_info & other)
     {
         copy(other);
     }
 
-    bool stream_output_info::operator==(const stream_output_info & rhs)
+    bool stream_info::operator==(const stream_info & rhs)
     {
         return rhs.format == format &&
             rhs.stream == stream &&
@@ -2031,7 +2107,7 @@ namespace librealsense
             rhs.index == index;
     }
 
-    void stream_output_info::copy(const stream_output_info & other)
+    void stream_info::copy(const stream_info & other)
     {
         format = other.format;
         stream = other.stream;
@@ -2041,7 +2117,7 @@ namespace librealsense
         fps = other.fps;
     }
 
-    stream_output_info & stream_output_info::operator=(const stream_output_info & rhs)
+    stream_info & stream_info::operator=(const stream_info & rhs)
     {
         if (this == &rhs)
             return *this;
@@ -2050,7 +2126,7 @@ namespace librealsense
         return *this;
     }
 
-    bool operator<(const stream_output_info & lhs, const stream_output_info & rhs)
+    bool operator<(const stream_info & lhs, const stream_info & rhs)
     {
         return lhs.format < rhs.format ||
             lhs.index < rhs.index ||
@@ -2059,7 +2135,7 @@ namespace librealsense
             lhs.fps < rhs.fps ||
             lhs.stream < rhs.stream;
     }
-    bool operator==(const stream_output_info & lhs, const stream_output_info & rhs)
+    bool operator==(const stream_info & lhs, const stream_info & rhs)
     {
         return rhs.format == lhs.format &&
             rhs.stream == lhs.stream &&
