@@ -252,6 +252,11 @@ namespace librealsense
         return frame_data;
     }
 
+    uint64_t frame::get_frame_data_size() const
+    {
+        return data.size();
+    }
+
     rs2_timestamp_domain frame::get_frame_timestamp_domain() const
     {
         return additional_data.timestamp_domain;

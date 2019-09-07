@@ -1636,14 +1636,19 @@ namespace librealsense
                                 target.width = vsp->get_width();
                             }
 
-                            auto cloned_profile = std::make_shared<video_stream_profile>(vsp->get_backend_profile());
-                            //cloned_profile->set_unique_id(profile->get_unique_id());
-                            cloned_profile->set_dims(target.width, target.height);
+                            //auto cloned_profile = std::make_shared<video_stream_profile>(vsp->get_backend_profile());
+                            ////cloned_profile->set_unique_id(profile->get_unique_id());
+                            //cloned_profile->set_dims(target.width, target.height);
+                            //cloned_profile->set_format(target.format);
+                            //cloned_profile->set_stream_index(target.index);
+                            //cloned_profile->set_stream_type(target.stream);
+                            //cloned_profile->set_framerate(target.fps);
+
+                            auto cloned_profile = clone_profile(profile);
                             cloned_profile->set_format(target.format);
                             cloned_profile->set_stream_index(target.index);
                             cloned_profile->set_stream_type(target.stream);
-                            cloned_profile->set_framerate(target.fps);
-                            
+
                             // cache the source to target mapping
                             _source_to_target_profiles_map[profile].push_back(cloned_profile);
                             _target_to_source_profiles_map[target].push_back(profile);
@@ -1840,14 +1845,10 @@ namespace librealsense
         // while not finished handling all of the requests do
         while (!unhandled_reqs.empty())
         {
-            //// union the mapped request to source profiles
-            //auto mapped_source_profiles = map_requests_to_source_profiles(unhandled_reqs);
-
             // find the best fitting processing block - the one which resolves the most requests.
             auto best_match = find_requests_best_match(unhandled_reqs);
             auto best_pb = best_match.first;
             auto best_reqs = best_match.second;
-            auto best_pb_targets = convert_to_stream_info(best_reqs);
             
             // mark as handled resolved requests
             for (auto req : best_reqs)
@@ -1859,6 +1860,8 @@ namespace librealsense
                     unhandled_reqs.erase(unhandled_req);                   
             }
 
+            // retrieve source profile from cached map.
+            auto best_pb_targets = convert_to_stream_info(best_reqs);
             for (auto target : best_pb_targets)
             {
                 auto mapped_source_profiles = _target_to_source_profiles_map[target];
@@ -1930,6 +1933,30 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_configure_lock);
 
         auto output_cb = make_callback([&, callback](frame_holder f) {
+
+            //auto composite = dynamic_cast<composite_frame*>(f.frame);
+            //if (composite)
+            //{
+            //    f.frame->acquire();
+            //    for (int i = 0; i < composite->get_embedded_frames_count(); i++)
+            //    {
+            //        frame_holder comp_frame = composite->get_frame(i);
+            //        // Filter
+            //        auto cached_profile = filter_frame_by_requests(comp_frame);
+
+            //        if (cached_profile)
+            //        {
+            //            comp_frame.frame->acquire();
+            //            comp_frame->set_stream(cached_profile);
+            //        }
+            //        else
+            //            return;
+
+            //        callback->on_frame((rs2_frame*)comp_frame.frame);
+            //    }
+            //    return;
+            //}
+
             // Filter
             auto cached_profile = filter_frame_by_requests(f);
 

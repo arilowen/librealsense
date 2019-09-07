@@ -411,13 +411,47 @@ namespace librealsense
         return res;
     }
 
-    composite_processing_block::composite_processing_block(std::vector<std::shared_ptr<processing_block>> processing_blocks) :
-        composite_processing_block(processing_blocks, "Composite Processing Block")
+    composite_processing_block::composite_processing_block() :
+        composite_processing_block("Composite Processing Block")
     {}
 
-    composite_processing_block::composite_processing_block(std::vector<std::shared_ptr<processing_block>> processing_blocks, const char * name) :
-        processing_block(name), _processing_blocks(processing_blocks)
+    composite_processing_block::composite_processing_block(const char * name) :
+        processing_block(name)
     {}
+
+    processing_block & composite_processing_block::get(rs2_option option)
+    {
+        // Find the first block which supports the option.
+        // It doesn't matter which one is selected, as long as it supports the option, because of the 
+        // option propogation caused by bypass_option::set(value)
+        int i = 0;
+        for (i = 0; i < _processing_blocks.size(); i++)
+        {
+            if (_processing_blocks[i]->supports_option(option))
+            {
+                auto val = _processing_blocks[i]->get_option(option).query();
+                if (val > 0.f) break;
+            }
+        }
+
+        update_info(RS2_CAMERA_INFO_NAME, _processing_blocks[i]->get_info(RS2_CAMERA_INFO_NAME));
+
+        return *_processing_blocks[i];
+    }
+
+    void composite_processing_block::add(std::shared_ptr<processing_block> block)
+    {
+        _processing_blocks.push_back(block);
+
+        for (int i = 0; i < RS2_OPTION_COUNT; i++)
+        {
+            auto opt = (rs2_option)i;
+            if (block->supports_option(opt))
+                register_option(opt, std::make_shared<bypass_option>(this, opt));
+        }
+
+        update_info(RS2_CAMERA_INFO_NAME, block->get_info(RS2_CAMERA_INFO_NAME));
+    }
 
     void composite_processing_block::set_output_callback(frame_callback_ptr callback)
     {
@@ -440,10 +474,5 @@ namespace librealsense
         // Invoke the first processing block.
         // This will trigger processing the frame in a chain by the order of the given processing blocks vector.
         _processing_blocks.front()->invoke(std::move(frames));
-    }
-
-    void composite_processing_block::append(std::shared_ptr<processing_block> pb)
-    {
-        _processing_blocks.push_back(pb);
     }
 }

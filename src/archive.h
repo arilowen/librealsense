@@ -125,6 +125,7 @@ namespace librealsense
         rs2_metadata_type get_frame_metadata(const rs2_frame_metadata_value& frame_metadata) const override;
         bool supports_frame_metadata(const rs2_frame_metadata_value& frame_metadata) const override;
         const byte* get_frame_data() const override;
+        uint64_t get_frame_data_size() const override;
         rs2_time_t get_frame_timestamp() const override;
         rs2_timestamp_domain get_frame_timestamp_domain() const override;
         void set_timestamp(double new_ts) override { additional_data.timestamp = new_ts; }

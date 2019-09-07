@@ -24,21 +24,27 @@ namespace librealsense
         // define and set the frame processing callback
         auto process_callback = [&](frame_holder frame, synthetic_source_interface* source)
         {
-            // passthrough the frame if we don't need to process it.
-            if (frame->get_stream()->get_format() != RS2_FORMAT_Y8I)
-            {
-                // maybe need to allocate either way
-                source->frame_ready(std::move(frame));
-                return;
-            }
-
-            // process the frame
             auto profile = As<video_stream_profile, stream_profile_interface>(frame.frame->get_stream());
             auto lp = std::make_shared<video_stream_profile>(profile->get_backend_profile());
             auto rp = std::make_shared<video_stream_profile>(profile->get_backend_profile());
             auto w = profile->get_width();
             auto h = profile->get_height();
 
+            // passthrough the frame if we don't need to process it.
+            auto format = profile->get_format();
+            if (format != RS2_FORMAT_Y8I)
+            {
+                auto bpp = get_image_bpp(format) / 8;
+                auto extension = format == RS2_FORMAT_Z16 ? RS2_EXTENSION_DEPTH_FRAME : RS2_EXTENSION_VIDEO_FRAME;
+                frame_holder frame_cpy = source->allocate_video_frame(profile, frame, bpp,
+                    w, h, w * bpp, extension);
+                memcpy((void*)frame_cpy->get_frame_data(), frame->get_frame_data(), sizeof(byte)*frame->get_frame_data_size());
+                source->frame_ready(std::move(frame_cpy));
+                //source->frame_ready(std::move(frame));
+                return;
+            }
+
+            // process the frame
             lp->set_format(RS2_FORMAT_Y8);
             rp->set_format(RS2_FORMAT_Y8);
             lp->set_stream_type(profile->get_stream_type());

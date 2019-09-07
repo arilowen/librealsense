@@ -26,6 +26,7 @@
 #include "proc/threshold.h"
 #include "proc/disparity-transform.h"
 #include "proc/spatial-filter.h"
+#include "proc/colorizer.h"
 #include "proc/temporal-filter.h"
 #include "proc/y8i-to-y8y8.h"
 #include "proc/identity-processing-block.h"
@@ -537,36 +538,66 @@ namespace librealsense
         auto smart_depth_ep = std::make_shared<ds5_depth_sensor>(this, depth_ep);
         smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
+        //smart_depth_ep->register_processing_block(
+        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH} },
+        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
+        //    []() { return std::make_shared<identity_processing_block>(); }
+        //);
+
         smart_depth_ep->register_processing_block(
-            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH} },
-            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
-            []() { return std::make_shared<identity_processing_block>(); }
+            { {RS2_FORMAT_Z16} },
+            { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR, 0} },
+            []() 
+        { 
+            auto cpb = std::make_shared<composite_processing_block>();
+            cpb->add(std::make_shared<identity_processing_block>());
+            cpb->add(std::make_shared<colorizer>());
+            return cpb;
+        }
         );
 
-        smart_depth_ep->register_processing_block(
-            { {RS2_FORMAT_Y8I} },
-            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
-            []() { return std::make_shared<y8i_to_y8y8>(); 
-        });
+        //smart_depth_ep->register_processing_block(
+        //    { {RS2_FORMAT_Y8I}, {RS2_FORMAT_Z16} },
+        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0}, {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1}, {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
+        //    []() {
+        //    //return make_shared<zo_plus_syncer>();
+        //    auto id = std::make_shared<identity_processing_block>();
+        //    auto id2 = std::make_shared<identity_processing_block>();
+        //    auto syncer = std::make_shared<syncer_process_unit>();
+        //    // zero order
+        //    auto cpb = std::make_shared<composite_processing_block>();
+        //    //cpb->add(id);
+        //    //cpb->add(id2);
+        //    cpb->add(syncer);
 
-        smart_depth_ep->register_processing_block(
-            { {RS2_FORMAT_Y8} },
-            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
-            []() { return std::make_shared<identity_processing_block>(); }
-        );
+        //    //return cpb;
+        //    return syncer;
+        //});
 
-        smart_depth_ep->register_processing_block(
-            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED}, {RS2_FORMAT_Z16, RS2_STREAM_DEPTH} },
-            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0}, {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
-            []() {
-                //return make_shared<zo_plus_syncer>();
-                auto syncer = std::make_shared<syncer_process_unit>();
-                // zero order
-                std::vector<std::shared_ptr<processing_block>> pb_list { syncer };
-                auto cpb = std::make_shared<composite_processing_block>(pb_list);
+        //smart_depth_ep->register_processing_block(
+        //    { {RS2_FORMAT_Y8I} },
+        //    { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
+        //    []() { return std::make_shared<y8i_to_y8y8>(); 
+        //});
 
-                return cpb;
-            });
+        //smart_depth_ep->register_processing_block(
+        //    { {RS2_FORMAT_Y8} },
+        //    { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
+        //    []() { return std::make_shared<identity_processing_block>(); }
+        //);
+
+        //smart_depth_ep->register_processing_block(
+        //    { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED}, {RS2_FORMAT_Z16, RS2_STREAM_DEPTH} },
+        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0}, {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
+        //    []() {
+        //        //return make_shared<zo_plus_syncer>();
+        //        auto syncer = std::make_shared<syncer_process_unit>();
+        //        // zero order
+        //        std::vector<std::shared_ptr<processing_block>> pb_list { syncer };
+        //        auto cpb = std::make_shared<composite_processing_block>(pb_list);
+
+        //        return cpb;
+        //    });
 
         smart_depth_ep->register_processing_block(
             { {RS2_FORMAT_Y8I}, {RS2_FORMAT_Z16} },
@@ -574,13 +605,15 @@ namespace librealsense
             []() {
             //return make_shared<zo_plus_syncer>();
             auto y8i = std::make_shared<y8i_to_y8y8>();
-            auto syncer = std::make_shared<syncer_process_unit>();
-            // zero order
-            std::vector<std::shared_ptr<processing_block>> pb_list{ y8i, syncer };
-            auto cpb = std::make_shared<composite_processing_block>(pb_list);
+            //auto syncer = std::make_shared<syncer_process_unit>();
+            //// zero order
+            //std::vector<std::shared_ptr<processing_block>> pb_list{ y8i, syncer };
+            //auto cpb = std::make_shared<composite_processing_block>(pb_list);
 
-            return cpb;
+            //return cpb;
+            return y8i;
         });
+
 
 
         return smart_depth_ep;
