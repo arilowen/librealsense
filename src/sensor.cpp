@@ -637,7 +637,6 @@ namespace librealsense
                     //{
                         //unpacker.unpack(dest.data(), reinterpret_cast<const byte *>(f.pixels), mode.profile.width, mode.profile.height);
                     //}
-
                     // If any frame callbacks were specified, dispatch them now
                     /*for (auto&& pref : refs)
                     {
@@ -1079,6 +1078,7 @@ namespace librealsense
     {
         register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP, make_additional_data_parser(&frame_additional_data::backend_timestamp));
 
+
         std::map<std::string, uint32_t> frequency_per_sensor;
         for (auto& elem : sensor_name_and_hid_profiles)
             frequency_per_sensor.insert(make_pair(elem.first, elem.second.fps));
@@ -1087,11 +1087,9 @@ namespace librealsense
         for (auto& elem : frequency_per_sensor)
             profiles_vector.push_back(platform::hid_profile{elem.first, elem.second});
 
-        _hid_device->open(profiles_vector);
+        _hid_device->register_profiles(profiles_vector);
         for (auto& elem : _hid_device->get_sensors())
             _hid_sensors.push_back(elem);
-
-        _hid_device->close();
     }
 
     hid_sensor::~hid_sensor()
@@ -2015,12 +2013,12 @@ namespace librealsense
                /* if (sp->get_format() == RS2_FORMAT_Y8)
                     sp->set_unique_id(1);*/
                 /*auto cached_profile = filter_frame_by_requests(f);*/
-                auto cached_profile = cached_requests[sp->get_format()][0];
-                if (cached_profile)
-                {
-                    //f.frame->acquire();
-                    f->set_stream(cached_profile);
-                }
+                //auto cached_profile = cached_requests[sp->get_format()][0];
+                //if (cached_profile)
+                //{
+                //    //f.frame->acquire();
+                //    f->set_stream(cached_profile);
+                //}
                 pb->invoke(std::move(f));
                 //}
                 //else

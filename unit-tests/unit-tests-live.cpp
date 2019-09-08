@@ -617,10 +617,10 @@ TEST_CASE("No extrinsic transformation between a stream and itself", "[live]")
         REQUIRE(device_count > 0);
 
         // For each device
-        for (auto&& dev : list)
+        for (auto&& snr : list)
         {
             std::vector<rs2::stream_profile> profs;
-            REQUIRE_NOTHROW(profs = dev.get_stream_profiles());
+            REQUIRE_NOTHROW(profs = snr.get_stream_profiles());
             REQUIRE(profs.size()>0);
 
             rs2_extrinsics extrin;
@@ -662,7 +662,7 @@ TEST_CASE("Extrinsic transformation between two streams is a rigid transform", "
             // For every pair of streams
             for (auto j = 0; j < adj_devices.size(); ++j)
             {
-                for (int k = j + 1; k < adj_devices.size(); ++k)
+                for (size_t k = j + 1; k < adj_devices.size(); ++k)
                 {
                     std::vector<rs2::stream_profile> profs_a, profs_b;
                     REQUIRE_NOTHROW(profs_a = adj_devices[j].get_stream_profiles());
@@ -715,11 +715,11 @@ TEST_CASE("Extrinsic transformations are transitive", "[live]")
             auto adj_devices = ctx.get_sensor_parent(dev).query_sensors();
 
             // For every set of subdevices
-            for (auto a = 0; a < adj_devices.size(); ++a)
+            for (auto a = 0UL; a < adj_devices.size(); ++a)
             {
-                for (auto b = 0; b < adj_devices.size(); ++b)
+                for (auto b = 0UL; b < adj_devices.size(); ++b)
                 {
-                    for (auto c = 0; c < adj_devices.size(); ++c)
+                    for (auto c = 0UL; c < adj_devices.size(); ++c)
                     {
                         std::vector<rs2::stream_profile> profs_a, profs_b, profs_c ;
                         REQUIRE_NOTHROW(profs_a = adj_devices[a].get_stream_profiles());
@@ -4129,7 +4129,7 @@ TEST_CASE("All suggested profiles can be opened", "[live][!mayfail]") {
 
             REQUIRE(modes.size() > 0);
             //the test will be done only on sub set of profile for each sub device
-            for (int i = 0; i < modes.size(); i += (int)std::ceil((float)modes.size() / (float)num_of_profiles_for_each_subdevice)) {
+            for (auto i = 0UL; i < modes.size(); i += (int)std::ceil((float)modes.size() / (float)num_of_profiles_for_each_subdevice)) {
                 //CAPTURE(rs2_subdevice(subdevice));
                 CAPTURE(modes[i].format());
                 CAPTURE(modes[i].fps());
@@ -4726,7 +4726,7 @@ TEST_CASE("Syncer sanity with software-device device", "[live][software-device][
 
         std::vector<std::vector<std::pair<rs2_stream, uint64_t>>> results;
 
-        for (auto i = 0; i < expected.size(); i++)
+        for (auto i = 0UL; i < expected.size(); i++)
         {
             frameset fs;
             REQUIRE_NOTHROW(fs = sync.wait_for_frames(5000));
@@ -4743,7 +4743,7 @@ TEST_CASE("Syncer sanity with software-device device", "[live][software-device][
         CAPTURE(expected.size());
         REQUIRE(results.size() == expected.size());
 
-        for (auto i = 0; i < expected.size(); i++)
+        for (size_t i = 0; i < expected.size(); i++)
         {
             auto exp = expected[i];
             auto curr = results[i];
@@ -4752,7 +4752,7 @@ TEST_CASE("Syncer sanity with software-device device", "[live][software-device][
             CAPTURE(curr.size());
             REQUIRE(exp.size() == curr.size());
 
-            for (auto j = 0; j < exp.size(); j++)
+            for (size_t j = 0; j < exp.size(); j++)
             {
                 CAPTURE(j);
                 CAPTURE(exp[j].first);
@@ -4826,7 +4826,7 @@ TEST_CASE("Syncer clean_inactive_streams by frame number with software-device de
 
         std::vector<std::vector<std::pair<rs2_stream, uint64_t>>> results;
 
-        for (auto i = 0; i < expected.size(); i++)
+        for (auto i = 0UL; i < expected.size(); i++)
         {
             frameset fs;
             CAPTURE(i);
@@ -4844,7 +4844,7 @@ TEST_CASE("Syncer clean_inactive_streams by frame number with software-device de
         CAPTURE(expected.size());
         REQUIRE(results.size() == expected.size());
 
-        for (auto i = 0; i < expected.size(); i++)
+        for (size_t i = 0; i < expected.size(); i++)
         {
             auto exp = expected[i];
             auto curr = results[i];
@@ -4853,7 +4853,7 @@ TEST_CASE("Syncer clean_inactive_streams by frame number with software-device de
             CAPTURE(curr.size());
             REQUIRE(exp.size() == exp.size());
 
-            for (auto j = 0; j < exp.size(); j++)
+            for (size_t j = 0; j < exp.size(); j++)
             {
                 CAPTURE(j);
                 CAPTURE(exp[j].first);
@@ -5029,7 +5029,7 @@ TEST_CASE("Syncer try wait for frames", "[live][software-device]") {
         };
 
         std::vector<std::vector<std::pair<rs2_stream, uint64_t>>> results;
-        for (auto i = 0; i < expected.size(); i++)
+        for (auto i = 0UL; i < expected.size(); i++)
         {
             frameset fs;
             REQUIRE(sync.try_wait_for_frames(&fs, 5000));
@@ -5046,7 +5046,7 @@ TEST_CASE("Syncer try wait for frames", "[live][software-device]") {
         CAPTURE(expected.size());
         REQUIRE(results.size() == expected.size());
 
-        for (auto i = 0; i < expected.size(); i++)
+        for (size_t i = 0; i < expected.size(); i++)
         {
             auto exp = expected[i];
             auto curr = results[i];
@@ -5054,7 +5054,7 @@ TEST_CASE("Syncer try wait for frames", "[live][software-device]") {
             CAPTURE(curr.size());
             REQUIRE(exp.size() == curr.size());
 
-            for (auto j = 0; j < exp.size(); j++)
+            for (size_t j = 0; j < exp.size(); j++)
             {
                 CAPTURE(exp[j].first);
                 CAPTURE(exp[j].second);
@@ -5322,7 +5322,7 @@ void compare(filter first, filter second)
 
     REQUIRE(first_options == second_options);
 
-    for (auto i = 0;i < first_options.size();i++)
+    for (auto i = 0UL;i < first_options.size();i++)
     {
         auto opt = static_cast<rs2_option>(first_options[i]);
         CAPTURE(opt);
@@ -5336,7 +5336,7 @@ void compare(std::vector<filter> first, std::vector<std::shared_ptr<filter>> sec
 {
     REQUIRE(first.size() == second.size());
 
-    for (auto i = 0;i < first.size();i++)
+    for (size_t i = 0;i < first.size();i++)
     {
         compare(first[i], (*second[i]));
     }

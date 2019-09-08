@@ -20,7 +20,7 @@
 #include "stream.h"
 #include "environment.h"
 #include "ds5-color.h"
-#include "ds5-rolling-shutter.h"
+#include "ds5-nonmonochrome.h"
 
 #include "proc/decimation-filter.h"
 #include "proc/threshold.h"
@@ -305,7 +305,7 @@ namespace librealsense
             auto results = synthetic_sensor::init_stream_profiles();
 
             auto color_dev = dynamic_cast<const ds5_color*>(&get_device());
-            auto rolling_shutter_dev = dynamic_cast<const ds5_rolling_shutter*>(&get_device());
+            auto rolling_shutter_dev = dynamic_cast<const ds5_nonmonochrome*>(&get_device());
 
             std::vector< video_stream_profile_interface*> depth_candidates;
             std::vector< video_stream_profile_interface*> infrared_candidates;
@@ -351,7 +351,6 @@ namespace librealsense
                     });
                 }
             }
-
             auto dev = dynamic_cast<const ds5_device*>(&get_device());
             auto dev_name = (dev) ? dev->get_info(RS2_CAMERA_INFO_NAME) : "";
 
@@ -487,7 +486,7 @@ namespace librealsense
         return {};
     }
 
-    ds::d400_caps ds5_device::parse_device_capabilities() const
+    ds::d400_caps ds5_device::parse_device_capabilities(const uint16_t pid) const
     {
         using namespace ds;
         std::array<unsigned char,HW_MONITOR_BUFFER_SIZE> gvd_buf;
@@ -500,13 +499,24 @@ namespace librealsense
         if (gvd_buf[rgb_sensor])                           // WithRGB
             val |= d400_caps::CAP_RGB_SENSOR;
         if (gvd_buf[imu_sensor])
+        {
             val |= d400_caps::CAP_IMU_SENSOR;
+            if (hid_bmi_055_pid.end() != hid_bmi_055_pid.find(pid))
+                val |= d400_caps::CAP_BMI_055;
+            else
+            {
+                if (hid_bmi_085_pid.end() != hid_bmi_085_pid.find(pid))
+                    val |= d400_caps::CAP_BMI_085;
+                else
+                    LOG_WARNING("The IMU sensor is undefined for PID " << std::hex << pid << std::dec);
+            }
+        }
         if (0xFF != (gvd_buf[fisheye_sensor_lb] & gvd_buf[fisheye_sensor_hb]))
             val |= d400_caps::CAP_FISHEYE_SENSOR;
         if (0x1 == gvd_buf[depth_sensor_type])
-            val |= d400_caps::CAP_ROLLING_SHUTTER;  // Standard depth
+            val |= d400_caps::CAP_ROLLING_SHUTTER;  // e.g. ASRC
         if (0x2 == gvd_buf[depth_sensor_type])
-            val |= d400_caps::CAP_GLOBAL_SHUTTER;   // Wide depth
+            val |= d400_caps::CAP_GLOBAL_SHUTTER;   // e.g. AWGC
 
         return val;
     }
@@ -689,7 +699,7 @@ namespace librealsense
 
         _recommended_fw_version = firmware_version(D4XX_RECOMMENDED_FIRMWARE_VERSION);
         if (_fw_version >= firmware_version("5.10.4.0"))
-            _device_capabilities = parse_device_capabilities();
+            _device_capabilities = parse_device_capabilities(pid);
 
         auto& depth_sensor = get_depth_sensor();
         auto& raw_depth_sensor = get_raw_depth_sensor();

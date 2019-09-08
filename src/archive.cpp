@@ -240,6 +240,11 @@ namespace librealsense
         return it->second->supports(*this);
     }
 
+    int frame::get_frame_data_size() const
+    {
+        return data.size();
+    }
+
     const byte* frame::get_frame_data() const
     {
         const byte* frame_data = data.data();
@@ -250,11 +255,6 @@ namespace librealsense
         }
 
         return frame_data;
-    }
-
-    uint64_t frame::get_frame_data_size() const
-    {
-        return data.size();
     }
 
     rs2_timestamp_domain frame::get_frame_timestamp_domain() const

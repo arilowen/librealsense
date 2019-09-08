@@ -64,7 +64,7 @@ namespace librealsense
             byte* planes[2];
             planes[0] = (byte*)lf.frame->get_frame_data();
             planes[1] = (byte*)rf.frame->get_frame_data();
-            unpack_y8_y8_from_y8i(planes, (const byte*)frame->get_frame_data(), w, h);
+            unpack_y8_y8_from_y8i(planes, (const byte*)frame->get_frame_data(), w, h, 0);
 
             source->frame_ready(std::move(lf));
             source->frame_ready(std::move(rf));
