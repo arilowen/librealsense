@@ -32,12 +32,11 @@ namespace librealsense
 
     };
 
-    class l500_depth_sensor : public uvc_sensor, public video_sensor_interface, public depth_sensor
+    class l500_depth_sensor : public synthetic_sensor, public video_sensor_interface, public depth_sensor
     {
     public:
-        explicit l500_depth_sensor(l500_device* owner, std::shared_ptr<platform::uvc_device> uvc_device,
-            std::unique_ptr<frame_timestamp_reader> timestamp_reader)
-            : uvc_sensor("L500 Depth Sensor", uvc_device, move(timestamp_reader), owner), _owner(owner)
+        explicit l500_depth_sensor(l500_device* owner, std::shared_ptr<uvc_sensor> uvc_sensor)
+            : synthetic_sensor("Smart Depth Sensor", uvc_sensor, owner), _owner(owner)
         {
             register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
                 lazy<float>([&]() {
@@ -68,7 +67,7 @@ namespace librealsense
         {
             auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
-            auto results = uvc_sensor::init_stream_profiles();
+            auto results = synthetic_sensor::init_stream_profiles();
             for (auto p : results)
             {
                 // Register stream types

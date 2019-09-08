@@ -14,7 +14,7 @@ namespace librealsense
     class l500_color : public virtual l500_device
     {
     public:
-        std::shared_ptr<uvc_sensor> create_color_device(std::shared_ptr<context> ctx,
+        std::shared_ptr<synthetic_sensor> create_color_device(std::shared_ptr<context> ctx,
             const std::vector<platform::uvc_device_info>& color_devices_info);
 
         l500_color(std::shared_ptr<context> ctx,
@@ -38,13 +38,13 @@ namespace librealsense
         std::vector<uint8_t> get_raw_extrinsics_table() const;
     };
 
-    class l500_color_sensor : public uvc_sensor, public video_sensor_interface
+    class l500_color_sensor : public synthetic_sensor, public video_sensor_interface
         {
         public:
-            explicit l500_color_sensor(l500_color* owner, std::shared_ptr<platform::uvc_device> uvc_device,
-                std::unique_ptr<frame_timestamp_reader> timestamp_reader,
+            explicit l500_color_sensor(l500_color* owner,
+                std::shared_ptr<uvc_sensor> uvc_sensor,
                 std::shared_ptr<context> ctx)
-                : uvc_sensor("RGB Camera", uvc_device, move(timestamp_reader), owner), _owner(owner)
+                : synthetic_sensor("Smart RGB Sensor", uvc_sensor, owner), _owner(owner)
             {}
 
             rs2_intrinsics get_intrinsics(const stream_profile& profile) const override
@@ -77,7 +77,7 @@ namespace librealsense
             {
                 auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
-                auto results = uvc_sensor::init_stream_profiles();
+                auto results = synthetic_sensor::init_stream_profiles();
 
                 for (auto p : results)
                 {

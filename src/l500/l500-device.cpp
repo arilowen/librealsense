@@ -13,6 +13,8 @@
 #include "proc/temporal-filter.h"
 #include "proc/hole-filling-filter.h"
 #include "proc/zero-order.h"
+#include "proc/syncer-processing-block.h"
+#include "proc/identity-processing-block.h"
 
 namespace librealsense
 {
@@ -33,18 +35,21 @@ namespace librealsense
 
         auto&& backend = ctx->get_backend();
 
+        auto& depth_sensor = get_depth_sensor();
+        auto& raw_depth_sensor = get_raw_depth_sensor();
+
         if (group.usb_devices.size() > 0)
         {
             _hw_monitor = std::make_shared<hw_monitor>(
                 std::make_shared<locked_transfer>(backend.create_usb_device(group.usb_devices.front()),
-                    get_depth_sensor()));
+                    raw_depth_sensor));
         }
         else
         {
             _hw_monitor = std::make_shared<hw_monitor>(
                 std::make_shared<locked_transfer>(std::make_shared<command_transfer_over_xu>(
-                    get_depth_sensor(), depth_xu, L500_HWMONITOR),
-                    get_depth_sensor()));
+                    raw_depth_sensor, depth_xu, L500_HWMONITOR),
+                    raw_depth_sensor));
         }
 
 #ifdef HWM_OVER_XU
@@ -52,8 +57,8 @@ namespace librealsense
         {
             _hw_monitor = std::make_shared<hw_monitor>(
                 std::make_shared<locked_transfer>(std::make_shared<command_transfer_over_xu>(
-                    get_depth_sensor(), depth_xu, L500_HWMONITOR),
-                    get_depth_sensor()));
+                    raw_depth_sensor, depth_xu, L500_HWMONITOR),
+                    raw_depth_sensor));
         }
 #endif
 
@@ -71,7 +76,7 @@ namespace librealsense
 
         using namespace platform;
 
-        auto usb_mode = get_depth_sensor().get_usb_specification();
+        auto usb_mode = raw_depth_sensor.get_usb_specification();
         if (usb_spec_names.count(usb_mode) && (usb_undefined != usb_mode))
         {
             auto usb_type_str = usb_spec_names.at(usb_mode);
@@ -89,7 +94,7 @@ namespace librealsense
 
     }
 
-    std::shared_ptr<uvc_sensor> l500_device::create_depth_device(std::shared_ptr<context> ctx,
+    std::shared_ptr<synthetic_sensor> l500_device::create_depth_device(std::shared_ptr<context> ctx,
         const std::vector<platform::uvc_device_info>& all_device_infos)
     {
         auto&& backend = ctx->get_backend();
@@ -100,8 +105,8 @@ namespace librealsense
 
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new l500_timestamp_reader_from_metadata(backend.create_time_service()));
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto depth_ep = std::make_shared<l500_depth_sensor>(this, std::make_shared<platform::multi_pins_uvc_device>(depth_devices),
-            std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)));
+        auto depth_ep = std::make_shared<uvc_sensor>("Depth Sensor", std::make_shared<platform::multi_pins_uvc_device>(depth_devices),
+            std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
 
         depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         depth_ep->register_xu(depth_xu);
@@ -117,7 +122,29 @@ namespace librealsense
                 std::map<float, std::string>{ { 1, "Long range"},
                 { 2, "Short range" }}));
 
-        return depth_ep;
+        auto smart_depth_ep = std::make_shared<l500_depth_sensor>(this, depth_ep);
+
+        smart_depth_ep->register_processing_block(
+            { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8} },
+            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
+            []() {
+            auto sync = std::make_shared<syncer_process_unit>();
+            auto zo = std::make_shared<zero_order>();
+            auto id = std::make_shared<identity_processing_block>();
+            auto cpb = std::make_shared<composite_processing_block>();
+            cpb->add(sync);
+            cpb->add(zo);
+            return cpb;
+        });
+
+        smart_depth_ep->register_processing_block(
+            { {RS2_FORMAT_Y8} },
+            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
+            []() {
+            return std::make_shared<identity_processing_block>();
+        });
+
+        return smart_depth_ep;
     }
 
     void l500_device::force_hardware_reset() const

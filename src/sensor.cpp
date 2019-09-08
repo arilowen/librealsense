@@ -2012,6 +2012,15 @@ namespace librealsense
                 //if (pb)
                 //{
                 sp->set_stream_index(source_info_it->index);
+               /* if (sp->get_format() == RS2_FORMAT_Y8)
+                    sp->set_unique_id(1);*/
+                /*auto cached_profile = filter_frame_by_requests(f);*/
+                auto cached_profile = cached_requests[sp->get_format()][0];
+                if (cached_profile)
+                {
+                    //f.frame->acquire();
+                    f->set_stream(cached_profile);
+                }
                 pb->invoke(std::move(f));
                 //}
                 //else

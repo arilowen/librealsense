@@ -3,21 +3,23 @@
 
 #include "l500-color.h"
 #include "l500-private.h"
+#include "proc/identity-processing-block.h"
+#include "proc/yuy2rgb.h"
 #include <cstddef>
 
 namespace librealsense
 {
     using namespace ivcam2;
 
-    std::shared_ptr<uvc_sensor> l500_color::create_color_device(std::shared_ptr<context> ctx, const std::vector<platform::uvc_device_info>& color_devices_info)
+    std::shared_ptr<synthetic_sensor> l500_color::create_color_device(std::shared_ptr<context> ctx, const std::vector<platform::uvc_device_info>& color_devices_info)
     {
         auto&& backend = ctx->get_backend();
 
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new ivcam2::l500_timestamp_reader_from_metadata(backend.create_time_service()));
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto color_ep = std::make_shared<l500_color_sensor>(this, ctx->get_backend().create_uvc_device(color_devices_info.front()),
+        auto color_ep = std::make_shared<uvc_sensor>("RGB Sensor", ctx->get_backend().create_uvc_device(color_devices_info.front()),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)),
-            ctx);
+            this);
 
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         color_ep->register_pixel_format(pf_yuy2);
@@ -95,7 +97,10 @@ namespace librealsense
         color_ep->register_metadata(RS2_FRAME_METADATA_POWER_LINE_FREQUENCY, make_attribute_parser(&md_rgb_control::power_line_frequency, md_rgb_control_attributes::power_line_frequency_attribute, md_prop_offset));
         color_ep->register_metadata(RS2_FRAME_METADATA_LOW_LIGHT_COMPENSATION, make_attribute_parser(&md_rgb_control::low_light_comp, md_rgb_control_attributes::low_light_comp_attribute, md_prop_offset));
 
-        return color_ep;
+        auto smart_color_ep = std::make_shared<l500_color_sensor>(this, color_ep, ctx);
+        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR, 0} }, []() { return std::make_shared<yuy2rgb>(); });
+        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_YUYV, RS2_STREAM_COLOR, 0} }, []() { return std::make_shared<identity_processing_block>(); });
+        return smart_color_ep;
     }
 
     l500_color::l500_color(std::shared_ptr<context> ctx, const platform::backend_device_group & group)
