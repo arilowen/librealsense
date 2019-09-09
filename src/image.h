@@ -10,6 +10,7 @@
 namespace librealsense
 {
     void unpack_y8_y8_from_y8i(byte * const dest[], const byte * source, int width, int height, int actual_size);
+    void align_l500_y8_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_yuy2_y8(byte * const d[], const byte * s, int w, int h, int actual_size);
     void unpack_yuy2_y16(byte * const d[], const byte * s, int w, int h, int actual_size);
     void unpack_yuy2_rgb8(byte * const d[], const byte * s, int w, int h, int actual_size);

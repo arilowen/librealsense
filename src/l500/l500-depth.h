@@ -162,6 +162,10 @@ namespace librealsense
             auto results = synthetic_sensor::init_stream_profiles();
             for (auto p : results)
             {
+                auto sp = As<video_stream_profile, stream_profile_interface>(p);
+                // flip l500 depth sensor resolution
+                //sp->set_dims(sp->get_height(), sp->get_width());
+
                 // Register stream types
                 if (p->get_stream_type() == RS2_STREAM_DEPTH)
                 {

@@ -192,7 +192,8 @@ namespace librealsense
 
         processing_block_factory(std::vector<stream_info> from,
             std::vector<stream_info> to,
-            std::function<std::shared_ptr<processing_block>(void)> generate_func);
+            std::function<std::shared_ptr<processing_block>(void)> generate_func,
+            bool requires_rotation);
 
         processing_block_factory(const processing_block_factory& rhs);
 
@@ -207,10 +208,12 @@ namespace librealsense
 
         stream_profiles find_satisfied_requests(stream_profiles sp);
         bool has_source(std::shared_ptr<stream_profile_interface> source);
+        bool is_rotation_required() { return _requires_rotation; };
 
     protected:
         std::vector<stream_info> _source_info;
         std::vector<stream_info> _target_info;
+        bool _requires_rotation = false; // needs rotation for l500
 
     private:
         void copy_processing_block_factory(const processing_block_factory & rhs);
@@ -239,7 +242,8 @@ namespace librealsense
 
         void register_processing_block(std::vector<stream_info> from,
             std::vector<stream_info> to,
-            std::function<std::shared_ptr<processing_block>(void)> generate_func);
+            std::function<std::shared_ptr<processing_block>(void)> generate_func,
+            bool requires_rotation = false);
 
         std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
 

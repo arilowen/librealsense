@@ -15,6 +15,7 @@
 #include "proc/zero-order.h"
 #include "proc/syncer-processing-block.h"
 #include "proc/identity-processing-block.h"
+#include "proc/y8-to-y8-rotated.h"
 
 namespace librealsense
 {
@@ -130,19 +131,18 @@ namespace librealsense
             []() {
             auto sync = std::make_shared<syncer_process_unit>();
             auto zo = std::make_shared<zero_order>();
-            auto id = std::make_shared<identity_processing_block>();
             auto cpb = std::make_shared<composite_processing_block>();
             cpb->add(sync);
             cpb->add(zo);
             return cpb;
-        });
+        }, true);
 
         smart_depth_ep->register_processing_block(
-            { {RS2_FORMAT_Y8} },
+            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
             { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
             []() {
-            return std::make_shared<identity_processing_block>();
-        });
+            return std::make_shared<y8_to_y8_rotated>();
+        }, true);
 
         return smart_depth_ep;
     }
