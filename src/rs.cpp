@@ -414,7 +414,7 @@ rs2_stream_profile* rs2_clone_stream_profile(const rs2_stream_profile* mode, rs2
     sp->set_stream_type(stream);
     sp->set_stream_index(stream_idx);
     sp->set_format(fmt);
-    //sp->set_unique_id(mode->profile->get_unique_id());
+    sp->set_unique_id(mode->profile->get_unique_id()); // added this due to composite processing block, the processing block's target profile is cloned, changing its uid before entering the syncer. this will cause the syncer to not find the correct matcher.
 
     return new rs2_stream_profile{ sp.get(), sp };
 }

@@ -377,6 +377,10 @@ namespace librealsense
             profile->set_stream_index(0);
             profile->set_format(fourcc_fmt);
             profile->set_framerate(p.fps);
+            profile->set_intrinsics([]()
+            {
+                return rs2_intrinsics{};
+            });
             profiles.insert(profile);
         }
 
@@ -569,7 +573,7 @@ namespace librealsense
                     additional_data.timestamp = timestamp;
                         
                     timestamp_domain = timestamp_reader->get_frame_timestamp_domain(frame);
-                    additional_data.last_frame_number =
+                    additional_data.last_frame_number = last_frame_number;
                     frame_counter = timestamp_reader->get_frame_counter(frame);
                     additional_data.frame_number = frame_counter;
 
@@ -614,6 +618,7 @@ namespace librealsense
                         frame_holder fh = _source.alloc_frame(stream_to_frame_types(req_profile_base->get_stream_type()), width * height * bpp / 8, additional_data, requires_processing);
                         if (fh.frame)
                         {
+                            scoped_timer t("frame allocation and copy");
                             memcpy((void*)fh->get_frame_data(), frame->data.data(), sizeof(byte)*frame->data.size());
                             auto video = (video_frame*)fh.frame;
                             video->assign(width, height, width * bpp / 8, bpp);
@@ -1927,7 +1932,7 @@ namespace librealsense
         };
     }
 
-    std::shared_ptr<stream_profile_interface> synthetic_sensor::filter_frame_by_requests(frame_holder& f)
+    std::shared_ptr<stream_profile_interface> synthetic_sensor::filter_frame_by_requests(frame_interface* f)
     {
         std::shared_ptr<stream_profile_interface> cached_profile;
         auto cached_req = cached_requests.find(f->get_stream()->get_format());
@@ -1952,29 +1957,28 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_configure_lock);
 
         auto output_cb = make_callback([&, callback](frame_holder f) {
+            auto composite = dynamic_cast<composite_frame*>(f.frame);
+            if (composite)
+            {
+                //f.frame->acquire();
+                for (int i = 0; i < composite->get_embedded_frames_count(); i++)
+                {
+                    auto comp_frame = composite->get_frame(i);
+                    // Filter
+                    auto cached_profile = filter_frame_by_requests(comp_frame);
 
-            //auto composite = dynamic_cast<composite_frame*>(f.frame);
-            //if (composite)
-            //{
-            //    f.frame->acquire();
-            //    for (int i = 0; i < composite->get_embedded_frames_count(); i++)
-            //    {
-            //        frame_holder comp_frame = composite->get_frame(i);
-            //        // Filter
-            //        auto cached_profile = filter_frame_by_requests(comp_frame);
+                    if (cached_profile)
+                    {
+                        comp_frame->set_stream(cached_profile);
+                    }
+                    else
+                        return;
 
-            //        if (cached_profile)
-            //        {
-            //            comp_frame.frame->acquire();
-            //            comp_frame->set_stream(cached_profile);
-            //        }
-            //        else
-            //            return;
-
-            //        callback->on_frame((rs2_frame*)comp_frame.frame);
-            //    }
-            //    return;
-            //}
+                    comp_frame->acquire();
+                    callback->on_frame((rs2_frame*)comp_frame);
+                }
+                return;
+            }
 
             // Filter
             auto cached_profile = filter_frame_by_requests(f);
@@ -2027,16 +2031,19 @@ namespace librealsense
 
                 //if (pb)
                 //{
-                sp->set_stream_index(source_info_it->index);
+                //sp->set_stream_index(source_info_it->index);
                 if (sp->get_format() == RS2_FORMAT_Y8)
                     sp->set_unique_id(1);
+                else if (sp->get_format() == RS2_FORMAT_Z16)
+                    sp->set_unique_id(0);
                 //auto cached_profile = filter_frame_by_requests(f);
-                //auto cached_profile = cached_requests[sp->get_format()][0];
-                //if (cached_profile)
-                //{
-                //    //f.frame->acquire();
-                //    f->set_stream(cached_profile);
-                //}
+                auto cached_profile = cached_requests[sp->get_format()][0];
+                if (cached_profile)
+                {
+                    //f.frame->acquire();
+                    f->set_stream(cached_profile);
+                }
+
                 pb->invoke(std::move(f));
 
                 // completed handling frame

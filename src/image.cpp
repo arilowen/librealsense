@@ -680,6 +680,10 @@ namespace librealsense
     {
         align_l500_image_optimized<1>(dest, source, width, height, actual_size);
     }
+    void align_l500_z16_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        align_l500_image_optimized<2>(dest, source, width, height, actual_size);
+    }
 
     // This templated function unpacks UYVY into RGB8/RGBA8/BGR8/BGRA8, depending on the compile-time parameter FORMAT.
     // It is expected that all branching outside of the loop control variable will be removed due to constant-folding.

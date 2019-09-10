@@ -2,8 +2,7 @@
 
 #include "../include/librealsense2/hpp/rs_sensor.hpp"
 #include "../include/librealsense2/hpp/rs_processing.hpp"
-
-#include "proc/synthetic-stream.h"
+#include "context.h"
 #include "option.h"
 #include "image.h"
 
@@ -27,6 +26,14 @@ namespace librealsense
         {
             _source_stream_profile = p;
             _target_stream_profile = p.clone(p.stream_type(), p.stream_index(), RS2_FORMAT_Y8);
+            //auto target_spi = p.get()->profile->clone();
+            //target_spi->set_unique_id(p.unique_id());
+            //target_spi->set_stream_index(p.stream_index());
+            //target_spi->set_format(RS2_FORMAT_Y8);
+            //target_spi->set_stream_type(p.stream_type());
+            //auto a = target_spi->get_c_wrapper();
+            //auto b = std::shared_ptr<rs2_stream_profile>(new rs2_stream_profile{ target_spi.get(), target_spi });
+            //_target_stream_profile = rs2::stream_profile(b.get());
         }
 
         rs2::frame ret;
