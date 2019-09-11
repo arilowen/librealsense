@@ -377,10 +377,10 @@ namespace librealsense
             profile->set_stream_index(0);
             profile->set_format(fourcc_fmt);
             profile->set_framerate(p.fps);
-            profile->set_intrinsics([]()
-            {
-                return rs2_intrinsics{};
-            });
+            //profile->set_intrinsics([]()
+            //{
+            //    return rs2_intrinsics{};
+            //});
             profiles.insert(profile);
         }
 
@@ -1957,41 +1957,37 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_configure_lock);
 
         auto output_cb = make_callback([&, callback](frame_holder f) {
+            std::vector<frame_interface*> frames_to_process;
+            frames_to_process.push_back(f.frame);
+
             auto composite = dynamic_cast<composite_frame*>(f.frame);
             if (composite)
             {
-                //f.frame->acquire();
                 for (int i = 0; i < composite->get_embedded_frames_count(); i++)
                 {
-                    auto comp_frame = composite->get_frame(i);
-                    // Filter
-                    auto cached_profile = filter_frame_by_requests(comp_frame);
+                    frames_to_process.push_back(composite->get_frame(i));
+                }
+            }
+
+            // process only frames which aren't composite.
+            for (auto fr : frames_to_process)
+            {
+                if (!dynamic_cast<composite_frame*>(fr))
+                {
+                    auto cached_profile = filter_frame_by_requests(fr);
 
                     if (cached_profile)
                     {
-                        comp_frame->set_stream(cached_profile);
+                        fr->set_stream(cached_profile);
                     }
                     else
                         return;
 
-                    comp_frame->acquire();
-                    callback->on_frame((rs2_frame*)comp_frame);
+                    fr->acquire();
+                    callback->on_frame((rs2_frame*)fr);
                 }
-                return;
+
             }
-
-            // Filter
-            auto cached_profile = filter_frame_by_requests(f);
-
-            if (cached_profile)
-            {
-                f.frame->acquire();
-                f->set_stream(cached_profile);
-            }
-            else
-                return;
-
-            callback->on_frame((rs2_frame*)f.frame);
         });
 
         for (auto&& pb_entry : _formats_to_processing_block)
