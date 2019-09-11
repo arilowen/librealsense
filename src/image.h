@@ -10,6 +10,7 @@
 namespace librealsense
 {
     void unpack_y8_y8_from_y8i(byte * const dest[], const byte * source, int width, int height, int actual_size);
+    void unpack_confidence(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void align_l500_z16_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void align_l500_y8_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_yuy2_y8(byte * const d[], const byte * s, int w, int h, int actual_size);
@@ -35,6 +36,9 @@ namespace librealsense
 
     std::vector<int> compute_rectification_table    (const rs2_intrinsics & rect_intrin, const rs2_extrinsics & rect_to_unrect, const rs2_intrinsics & unrect_intrin);
     void             rectify_image                  (uint8_t * rect_pixels, const std::vector<int> & rectification_table, const uint8_t * unrect_pixels, rs2_format format);
+
+    resolution rotate_resolution(resolution res);
+    resolution l500_confidence_resolution(resolution res);
 
     extern const native_pixel_format pf_fe_raw8_unpatched_kernel; // W/O for unpatched kernel
     extern const native_pixel_format pf_raw8;       // 8 bit luminance

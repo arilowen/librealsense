@@ -1632,7 +1632,7 @@ namespace librealsense
                         for (auto&& target : targets)
                         {
                             target.fps = profile->get_framerate();
-
+                            //target.stream_resolution = &rotate_resolution;
                             //auto cloned_profile = std::make_shared<video_stream_profile>(vsp->get_backend_profile());
                             ////cloned_profile->set_unique_id(profile->get_unique_id());
                             //cloned_profile->set_dims(target.width, target.height);
@@ -1649,17 +1649,22 @@ namespace librealsense
                             auto cloned_vsp = As<video_stream_profile, stream_profile_interface>(cloned_profile);
                             if (cloned_vsp)
                             {
-                                if (pbf.is_rotation_required())
-                                {
-                                    target.height = vsp->get_width();
-                                    target.width = vsp->get_height();
-                                    cloned_vsp->set_dims(target.width, target.height);
-                                    //    vsp->set_dims(vsp->get_height(), vsp->get_width()); // rotate height and width if needed (l500)
-                                }
-                                else {
-                                    target.height = vsp->get_height();
-                                    target.width = vsp->get_width();
-                                }
+                                auto res = target.stream_resolution({ vsp->get_width(), vsp->get_height() });
+                                target.height = res.height;
+                                target.width = res.width;
+                                cloned_vsp->set_dims(target.width, target.height);
+                                //if (pbf.is_rotation_required())
+                                //{
+                                //    target.height = vsp->get_width();
+                                //    target.width = vsp->get_height();
+                                //    cloned_vsp->set_dims(target.width, target.height);
+                                //    //    vsp->set_dims(vsp->get_height(), vsp->get_width()); // rotate height and width if needed (l500)
+                                //}
+                                //else {
+                                //    target.height = vsp->get_height();
+                                //    target.width = vsp->get_width();
+                                //}
+
                             }
 
                             // cache the source to target mapping
@@ -1874,24 +1879,31 @@ namespace librealsense
             }
 
             // retrieve source profile from cached map.
-            auto best_pb_targets = convert_to_stream_info(best_reqs);
-            for (auto target : best_pb_targets)
+            for (auto req : best_reqs)
             {
+                auto target = stream_info(req);
                 auto mapped_source_profiles = _target_to_source_profiles_map[target];
-                for (auto profile : mapped_source_profiles)
+                for (auto source_profile : mapped_source_profiles)
                 {
-                    if (best_pb.has_source(profile))
+                    if (best_pb.has_source(source_profile))
                     {
-                        // pass missing relevant profile data
-                        profile->set_stream_index(target.index);
-                        //profile->set_unique_id(target.uid);
-                        // for l500 profiles
-                        auto vsp = As<video_stream_profile, stream_profile_interface>(profile);
+                        // init_stream_profiles() cloned the source profiles and converted them into target profiles.
+                        // we must pass the missing data from the target profiles to the source profiles.
+                        source_profile->set_stream_index(target.index);
+                        //source_profile->set_unique_id(target.uid);
+                        auto vsp = As<video_stream_profile, stream_profile_interface>(source_profile);
                         if (vsp)
                         {
+                            vsp->set_intrinsics([req]() {
+                                auto req_vsp = As<video_stream_profile, stream_profile_interface>(req);
+                                if (req_vsp)
+                                    return req_vsp->get_intrinsics();
+                                else
+                                    return rs2_intrinsics{};
+                            });
                             vsp->set_dims(target.width, target.height);
                         }
-                        resolved_req_set.insert(profile);
+                        resolved_req_set.insert(source_profile);
                     }
                 }
 
@@ -1956,6 +1968,7 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_configure_lock);
 
+        // After processing callback
         auto output_cb = make_callback([&, callback](frame_holder f) {
             std::vector<frame_interface*> frames_to_process;
             frames_to_process.push_back(f.frame);
@@ -1990,6 +2003,7 @@ namespace librealsense
             }
         });
 
+        // Set callbacks for all of the relevant processing blocks
         for (auto&& pb_entry : _formats_to_processing_block)
         {
             auto&& pb = pb_entry.second;
@@ -1999,6 +2013,7 @@ namespace librealsense
             }
         }
 
+        // Invoke processing blocks callback
         auto process_cb = make_callback([&, callback, this](frame_holder f) {
 
             //std::lock_guard<std::mutex> lock(_configure_lock); // TODO - Ariel - maybe can cause deadlock?
@@ -2028,17 +2043,17 @@ namespace librealsense
                 //if (pb)
                 //{
                 //sp->set_stream_index(source_info_it->index);
-                if (sp->get_format() == RS2_FORMAT_Y8)
-                    sp->set_unique_id(1);
-                else if (sp->get_format() == RS2_FORMAT_Z16)
-                    sp->set_unique_id(0);
+                //if (sp->get_format() == RS2_FORMAT_Y8)
+                //    sp->set_unique_id(1);
+                //else if (sp->get_format() == RS2_FORMAT_Z16)
+                //    sp->set_unique_id(0);
                 //auto cached_profile = filter_frame_by_requests(f);
-                auto cached_profile = cached_requests[sp->get_format()][0];
-                if (cached_profile)
-                {
-                    //f.frame->acquire();
-                    f->set_stream(cached_profile);
-                }
+                //auto cached_profile = cached_requests[sp->get_format()][0];
+                //if (cached_profile)
+                //{
+                //    //f.frame->acquire();
+                //    f->set_stream(cached_profile);
+                //}
 
                 pb->invoke(std::move(f));
 
@@ -2060,9 +2075,9 @@ namespace librealsense
         cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }
 
-    void synthetic_sensor::register_processing_block(std::vector<stream_info> from, std::vector<stream_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func, bool requires_rotation)
+    void synthetic_sensor::register_processing_block(std::vector<stream_info> from, std::vector<stream_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func)
     {
-        processing_block_factory pbf(from, to, generate_func, requires_rotation);
+        processing_block_factory pbf(from, to, generate_func);
         _pb_factories.push_back(pbf);
     }
 
@@ -2097,8 +2112,8 @@ namespace librealsense
     //    }
     //}
 
-    processing_block_factory::processing_block_factory(std::vector<stream_info> from, std::vector<stream_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func, bool requires_rotation) :
-        _source_info(from), _target_info(to), generate_processing_block(generate_func), _requires_rotation(requires_rotation)
+    processing_block_factory::processing_block_factory(std::vector<stream_info> from, std::vector<stream_info> to, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
+        _source_info(from), _target_info(to), generate_processing_block(generate_func)
     {
     }
 
@@ -2186,8 +2201,15 @@ namespace librealsense
     {
         _source_info = rhs.get_source_info();
         _target_info = rhs.get_target_info();
-        _requires_rotation = rhs._requires_rotation;
         generate_processing_block = rhs.generate_processing_block;
+    }
+
+    stream_info::stream_info(rs2_format fmt, rs2_stream strm, int idx, uint32_t w, uint32_t h, int framerate, resolution_func res_func) :
+        format(fmt), stream(strm), index(idx), height(h), width(w), stream_resolution(res_func), fps(framerate)
+    {
+        auto res = stream_resolution({ w, h });
+        width = res.width;
+        height = res.height;
     }
 
     stream_info::stream_info(std::shared_ptr<stream_profile_interface> sp)
@@ -2223,6 +2245,7 @@ namespace librealsense
 
     void stream_info::copy(const stream_info & other)
     {
+        stream_resolution = other.stream_resolution;
         format = other.format;
         stream = other.stream;
         width = other.width;

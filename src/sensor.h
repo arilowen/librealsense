@@ -159,8 +159,14 @@ namespace librealsense
 
     struct stream_info
     {
-        stream_info(rs2_format fmt, rs2_stream strm = RS2_STREAM_ANY, int idx = 0, int w = 0, int h = 0, int framerate = 0) :
-            format(fmt), stream(strm), index(idx), width(w), height(h), fps(framerate) {};
+        //stream_info(rs2_format fmt, rs2_stream strm = RS2_STREAM_ANY, int idx = 0, int w = 0, int h = 0, int framerate = 0) :
+        //    format(fmt), stream(strm), index(idx), width(w), height(h), fps(framerate) {};
+        stream_info(rs2_format fmt,
+            rs2_stream strm = RS2_STREAM_ANY,
+            int idx = 0,
+            uint32_t w = 0, uint32_t h = 0,
+            int framerate = 0,
+            resolution_func res_func = [](resolution res) { return res; });
         stream_info(std::shared_ptr<stream_profile_interface> sp);
         stream_info(const stream_info& other);
 
@@ -182,10 +188,11 @@ namespace librealsense
             }
         };
 
+        resolution_func stream_resolution; // Calculates the relevant resolution from the given backend resolution.
         rs2_format format;
         rs2_stream stream;
-        int width;
-        int height;
+        uint32_t width;
+        uint32_t height;
         int fps;
         int index;
     };
@@ -199,8 +206,7 @@ namespace librealsense
 
         processing_block_factory(std::vector<stream_info> from,
             std::vector<stream_info> to,
-            std::function<std::shared_ptr<processing_block>(void)> generate_func,
-            bool requires_rotation);
+            std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
         processing_block_factory(const processing_block_factory& rhs);
 
@@ -215,12 +221,10 @@ namespace librealsense
 
         stream_profiles find_satisfied_requests(stream_profiles sp);
         bool has_source(std::shared_ptr<stream_profile_interface> source);
-        bool is_rotation_required() { return _requires_rotation; };
 
     protected:
         std::vector<stream_info> _source_info;
         std::vector<stream_info> _target_info;
-        bool _requires_rotation = false; // needs rotation for l500
 
     private:
         void copy_processing_block_factory(const processing_block_factory & rhs);
@@ -249,8 +253,7 @@ namespace librealsense
 
         void register_processing_block(std::vector<stream_info> from,
             std::vector<stream_info> to,
-            std::function<std::shared_ptr<processing_block>(void)> generate_func,
-            bool requires_rotation = false);
+            std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
         std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
 

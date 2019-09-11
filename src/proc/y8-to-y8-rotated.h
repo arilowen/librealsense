@@ -9,7 +9,7 @@ namespace librealsense
     public:
         y8_to_y8_rotated();
         y8_to_y8_rotated(const char* name);
-        rs2::frame y8_to_y8_rotated::process_frame(const rs2::frame_source& source, const rs2::frame& f);
+        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f);
 
     private:
         rs2::stream_profile _target_stream_profile;

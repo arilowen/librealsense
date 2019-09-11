@@ -17,6 +17,7 @@
 #include "proc/identity-processing-block.h"
 #include "proc/y8-to-y8-rotated.h"
 #include "proc/z16-to-z16-rotated.h"
+#include "proc/confidence-to-raw8.h"
 
 namespace librealsense
 {
@@ -127,8 +128,44 @@ namespace librealsense
         auto smart_depth_ep = std::make_shared<l500_depth_sensor>(this, depth_ep);
 
         smart_depth_ep->register_processing_block(
+            { {RS2_FORMAT_Y8} },
+            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1, 0, 0, 0, &rotate_resolution} },
+            []() {
+            return std::make_shared<y8_to_y8_rotated>();
+        });
+
+        smart_depth_ep->register_processing_block(
+            { {RS2_FORMAT_RAW8} },
+            { {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution} },
+            []() {
+            return std::make_shared<confidence_to_raw8>();
+        });
+
+        smart_depth_ep->register_processing_block(
+            { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8}, {RS2_FORMAT_RAW8} },
+            { 
+                {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution},
+                {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution}
+            },
+            []() {
+            auto z16rot = std::make_shared<z16_to_z16_rotated>();
+            auto y8rot = std::make_shared<y8_to_y8_rotated>();
+            auto conf = std::make_shared<confidence_to_raw8>();
+            auto sync = std::make_shared<syncer_process_unit>();
+            auto zo = std::make_shared<zero_order>();
+            auto cpb = std::make_shared<composite_processing_block>();
+
+            cpb->add(z16rot);
+            cpb->add(y8rot);
+            cpb->add(sync);
+            cpb->add(zo);
+
+            return cpb;
+        });
+
+        smart_depth_ep->register_processing_block(
             { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8} },
-            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0} },
+            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution} },
             []() {
             auto z16rot = std::make_shared<z16_to_z16_rotated>();
             auto y8rot = std::make_shared<y8_to_y8_rotated>();
@@ -142,14 +179,7 @@ namespace librealsense
             cpb->add(zo);
 
             return cpb;
-        }, true);
-
-        smart_depth_ep->register_processing_block(
-            { {RS2_FORMAT_Y8} },
-            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
-            []() {
-            return std::make_shared<y8_to_y8_rotated>();
-        }, true);
+        });
 
         //smart_depth_ep->register_processing_block(
         //    { {RS2_FORMAT_Z16} },
