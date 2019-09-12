@@ -265,7 +265,7 @@ namespace librealsense
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);
         std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_interface* f);
-        void sort_profiles_by_resolution(stream_profiles * profiles);
+        void sort_profiles(stream_profiles * profiles);
         std::pair<processing_block_factory, stream_profiles> find_requests_best_match(stream_profiles sp);
         std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(stream_profiles requests);
         std::shared_ptr<stream_profile_interface> correlate_target_source_profiles(std::shared_ptr<stream_profile_interface> source_profile, std::shared_ptr<stream_profile_interface> request);

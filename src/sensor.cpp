@@ -1561,29 +1561,42 @@ namespace librealsense
             _raw_sensor->unregister_option(id);
     }
 
-    void synthetic_sensor::sort_profiles_by_resolution(stream_profiles* profiles)
+    void synthetic_sensor::sort_profiles(stream_profiles* profiles)
     {
-        // by height
-        std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
-        {
-            auto spa = std::dynamic_pointer_cast<video_stream_profile>(spia);
-            auto spb = std::dynamic_pointer_cast<video_stream_profile>(spib);
-            return spa->get_height() < spb->get_height();
-        });
+            std::sort(profiles->begin(), profiles->end(), [](const std::shared_ptr<stream_profile_interface>& ap,
+                                         const std::shared_ptr<stream_profile_interface>& bp)
+    {
+        auto a = to_profile(ap.get());
+        auto b = to_profile(bp.get());
 
-        // by width
-        std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
-        {
-            auto spa = std::dynamic_pointer_cast<video_stream_profile>(spia);
-            auto spb = std::dynamic_pointer_cast<video_stream_profile>(spib);
-            return spa->get_width() < spb->get_width();
-        });
+        // stream == RS2_STREAM_COLOR && format == RS2_FORMAT_RGB8 element works around the fact that Y16 gets priority over RGB8 when both
+        // are available for pipeline stream resolution
+        auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == RS2_FORMAT_RGB8, a.format);
+        auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == RS2_FORMAT_RGB8, b.format);
 
-        // by format
-        std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
-        {
-            return spia->get_format() < spib->get_format();
-        });
+        return at > bt;
+    });
+        //// by height
+        //std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
+        //{
+        //    auto spa = std::dynamic_pointer_cast<video_stream_profile>(spia);
+        //    auto spb = std::dynamic_pointer_cast<video_stream_profile>(spib);
+        //    return spa->get_height() < spb->get_height();
+        //});
+
+        //// by width
+        //std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
+        //{
+        //    auto spa = std::dynamic_pointer_cast<video_stream_profile>(spia);
+        //    auto spb = std::dynamic_pointer_cast<video_stream_profile>(spib);
+        //    return spa->get_width() < spb->get_width();
+        //});
+
+        //// by format
+        //std::sort(profiles->begin(), profiles->end(), [](std::shared_ptr<stream_profile_interface> spia, std::shared_ptr<stream_profile_interface> spib)
+        //{
+        //    return spia->get_format() < spib->get_format();
+        //});
     }
 
     std::shared_ptr<stream_profile_interface> clone_profile(std::shared_ptr<stream_profile_interface> profile)
@@ -1721,7 +1734,7 @@ namespace librealsense
         }
 
         _owner->tag_profiles(result_profiles);
-        sort_profiles_by_resolution(&result_profiles);
+        sort_profiles(&result_profiles);
         return result_profiles;
     }
 

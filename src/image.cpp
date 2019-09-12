@@ -651,6 +651,31 @@ namespace librealsense
     #endif
     }
 
+    void unpack_yuy2_to(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size)
+    {
+        switch (dst_format)
+        {
+        case RS2_FORMAT_Y8:
+            unpack_yuy2<RS2_FORMAT_Y8>(d, s, w, h, actual_size);
+            break;
+        case RS2_FORMAT_Y16:
+            unpack_yuy2<RS2_FORMAT_Y16>(d, s, w, h, actual_size);
+            break;
+        case RS2_FORMAT_RGB8:
+            unpack_yuy2<RS2_FORMAT_RGB8>(d, s, w, h, actual_size);
+            break;
+        case RS2_FORMAT_RGBA8:
+            unpack_yuy2<RS2_FORMAT_RGBA8>(d, s, w, h, actual_size);
+            break;
+        case RS2_FORMAT_BGR8:
+            unpack_yuy2<RS2_FORMAT_BGR8>(d, s, w, h, actual_size);
+            break;
+        case RS2_FORMAT_BGRA8:
+            unpack_yuy2<RS2_FORMAT_BGRA8>(d, s, w, h, actual_size);
+            break;
+        }
+    }
+
     void unpack_yuy2_y8(byte * const d[], const byte * s, int w, int h, int actual_size)
     {
         unpack_yuy2<RS2_FORMAT_Y8>(d, s, w, h, actual_size);

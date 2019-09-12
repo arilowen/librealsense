@@ -33,6 +33,10 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/z16-to-z16-rotated.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/y16-to-y16.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/confidence-to-raw8.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/yuy2-to-y16.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/yuy2-to-rgba.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/yuy2-to-bgr.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/yuy2-to-bgra.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/processing-blocks-factory.h"
         "${CMAKE_CURRENT_LIST_DIR}/align.h"
@@ -57,4 +61,9 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/z16-to-z16-rotated.h"
         "${CMAKE_CURRENT_LIST_DIR}/y16-to-y16.h"
 	"${CMAKE_CURRENT_LIST_DIR}/confidence-to-raw8.h"
+	"${CMAKE_CURRENT_LIST_DIR}/yuy2-to-y16.h"
+	"${CMAKE_CURRENT_LIST_DIR}/yuy2-to-rgba.h"
+	"${CMAKE_CURRENT_LIST_DIR}/yuy2-to-bgr.h"
+	"${CMAKE_CURRENT_LIST_DIR}/yuy2-to-bgra.h"
+	"${CMAKE_CURRENT_LIST_DIR}/yuy2-converter.h"
 )
