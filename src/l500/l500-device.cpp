@@ -142,19 +142,15 @@ namespace librealsense
         });
 
         smart_depth_ep->register_processing_block(
-            { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8}, {RS2_FORMAT_RAW8} },
-            { 
-                {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution},
-                {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution}
-            },
+            { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8} },
+            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution} },
             []() {
             auto z16rot = std::make_shared<z16_to_z16_rotated>();
             auto y8rot = std::make_shared<y8_to_y8_rotated>();
-            auto conf = std::make_shared<confidence_to_raw8>();
             auto sync = std::make_shared<syncer_process_unit>();
             auto zo = std::make_shared<zero_order>();
-            auto cpb = std::make_shared<composite_processing_block>();
 
+            auto cpb = std::make_shared<composite_processing_block>();
             cpb->add(z16rot);
             cpb->add(y8rot);
             cpb->add(sync);
@@ -164,29 +160,27 @@ namespace librealsense
         });
 
         smart_depth_ep->register_processing_block(
-            { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8} },
-            { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution} },
+            { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8}, {RS2_FORMAT_RAW8} },
+            {
+                {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution},
+                {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution}
+            },
             []() {
             auto z16rot = std::make_shared<z16_to_z16_rotated>();
             auto y8rot = std::make_shared<y8_to_y8_rotated>();
+            auto conf = std::make_shared<confidence_to_raw8>();
             auto sync = std::make_shared<syncer_process_unit>();
             auto zo = std::make_shared<zero_order>();
-            auto cpb = std::make_shared<composite_processing_block>();
 
+            auto cpb = std::make_shared<composite_processing_block>();
             cpb->add(z16rot);
             cpb->add(y8rot);
+            cpb->add(conf);
             cpb->add(sync);
             cpb->add(zo);
 
             return cpb;
         });
-
-        //smart_depth_ep->register_processing_block(
-        //    { {RS2_FORMAT_Z16} },
-        //    { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH} },
-        //    []() {
-        //    return std::make_shared<z16_to_z16_rotated>();
-        //}, true);
 
         return smart_depth_ep;
     }

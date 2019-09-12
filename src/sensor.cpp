@@ -618,7 +618,6 @@ namespace librealsense
                         frame_holder fh = _source.alloc_frame(stream_to_frame_types(req_profile_base->get_stream_type()), width * height * bpp / 8, additional_data, requires_processing);
                         if (fh.frame)
                         {
-                            scoped_timer t("frame allocation and copy");
                             memcpy((void*)fh->get_frame_data(), frame->data.data(), sizeof(byte)*frame->data.size());
                             auto video = (video_frame*)fh.frame;
                             video->assign(width, height, width * bpp / 8, bpp);
@@ -1668,7 +1667,10 @@ namespace librealsense
                             }
 
                             // cache the source to target mapping
-                            _source_to_target_profiles_map[profile].push_back(cloned_profile);
+                            if (profile->get_format() == cloned_profile->get_format())
+                            {
+                                _source_to_target_profiles_map[profile].push_back(cloned_profile);
+                            }
                             _target_to_source_profiles_map[target].push_back(profile);
 
                             //auto profile_to_pb_factory_match = std::find_if(profile_to_pb_factory.begin(), profile_to_pb_factory.end(), [&profile](auto entry) {
@@ -1848,6 +1850,38 @@ namespace librealsense
         return res;
     }
 
+    std::shared_ptr<stream_profile_interface> synthetic_sensor::correlate_target_source_profiles(std::shared_ptr<stream_profile_interface> source_profile, std::shared_ptr<stream_profile_interface> request)
+    {
+        // might be one profile to many, for instance, y8i -> y8left, y8right.
+        auto target_profiles = _source_to_target_profiles_map[source_profile];
+
+        // find the closest target profile to the request, if there is none, just take the first.
+        auto best_match = std::find_if(target_profiles.begin(), target_profiles.end(), [request](auto sp)
+        {
+            return request->get_format() == sp->get_format() &&
+                request->get_stream_index() == sp->get_stream_index() &&
+                request->get_stream_type() == sp->get_stream_type();
+        });
+
+        auto correlated_target_profile = best_match != target_profiles.end() ? *best_match : target_profiles.front();
+        source_profile->set_stream_index(correlated_target_profile->get_stream_index());
+        source_profile->set_unique_id(correlated_target_profile->get_unique_id());
+        auto vsp = As<video_stream_profile, stream_profile_interface>(source_profile);
+        auto cvsp = As<video_stream_profile, stream_profile_interface>(correlated_target_profile);
+        if (vsp)
+        {
+            vsp->set_intrinsics([cvsp]() {
+
+                if (cvsp)
+                    return cvsp->get_intrinsics();
+                else
+                    return rs2_intrinsics{};
+            });
+            vsp->set_dims(cvsp->get_width(), cvsp->get_height());
+        }
+        return source_profile;
+    }
+
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
     {
         std::unordered_set<std::shared_ptr<stream_profile_interface>> resolved_req_set;
@@ -1889,24 +1923,9 @@ namespace librealsense
                     {
                         // init_stream_profiles() cloned the source profiles and converted them into target profiles.
                         // we must pass the missing data from the target profiles to the source profiles.
-                        source_profile->set_stream_index(target.index);
-                        //source_profile->set_unique_id(target.uid);
-                        auto vsp = As<video_stream_profile, stream_profile_interface>(source_profile);
-                        if (vsp)
-                        {
-                            vsp->set_intrinsics([req]() {
-                                auto req_vsp = As<video_stream_profile, stream_profile_interface>(req);
-                                if (req_vsp)
-                                    return req_vsp->get_intrinsics();
-                                else
-                                    return rs2_intrinsics{};
-                            });
-                            vsp->set_dims(target.width, target.height);
-                        }
-                        resolved_req_set.insert(source_profile);
+                        resolved_req_set.insert(correlate_target_source_profiles(source_profile, req));
                     }
                 }
-
             }
             // generate this processing block and append it to the cached processing blocks.
             _formats_to_processing_block[best_pb.get_source_info()] = best_pb.generate_processing_block();
@@ -1994,7 +2013,7 @@ namespace librealsense
                         fr->set_stream(cached_profile);
                     }
                     else
-                        return;
+                        continue;
 
                     fr->acquire();
                     callback->on_frame((rs2_frame*)fr);
