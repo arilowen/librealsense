@@ -34,13 +34,13 @@ namespace librealsense
             auto format = profile->get_format();
             if (format != RS2_FORMAT_Y8I)
             {
-                auto bpp = get_image_bpp(format) / 8;
-                auto extension = format == RS2_FORMAT_Z16 ? RS2_EXTENSION_DEPTH_FRAME : RS2_EXTENSION_VIDEO_FRAME;
-                frame_holder frame_cpy = source->allocate_video_frame(profile, frame, bpp,
-                    w, h, w * bpp, extension);
-                memcpy((void*)frame_cpy->get_frame_data(), frame->get_frame_data(), sizeof(byte)*frame->get_frame_data_size());
-                source->frame_ready(std::move(frame_cpy));
-                //source->frame_ready(std::move(frame));
+                //auto bpp = get_image_bpp(format) / 8;
+                //auto extension = format == RS2_FORMAT_Z16 ? RS2_EXTENSION_DEPTH_FRAME : RS2_EXTENSION_VIDEO_FRAME;
+                //frame_holder frame_cpy = source->allocate_video_frame(profile, frame, bpp,
+                //    w, h, w * bpp, extension);
+                //memcpy((void*)frame_cpy->get_frame_data(), frame->get_frame_data(), sizeof(byte)*frame->get_frame_data_size());
+                //source->frame_ready(std::move(frame_cpy));
+                source->frame_ready(std::move(frame));
                 return;
             }
 

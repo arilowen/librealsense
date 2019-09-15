@@ -102,15 +102,18 @@ namespace librealsense
         void assign_stream(const std::shared_ptr<stream_interface>& stream,
                            std::shared_ptr<stream_profile_interface> target) const;
 
-        std::vector<request_mapping> resolve_requestss(stream_profiles requests); //TODO - delete
-        stream_profiles resolve_requests(stream_profiles requests);
+        //std::vector<request_mapping> resolve_requestss(stream_profiles requests); //TODO - delete
+        //stream_profiles resolve_requests(stream_profiles requests);
 
-        std::shared_ptr<stream_profile_interface> map_requests(std::shared_ptr<stream_profile_interface> request);
+        //std::shared_ptr<stream_profile_interface> map_requests(std::shared_ptr<stream_profile_interface> request);
         std::shared_ptr<frame> generate_frame_from_data(const platform::frame_object& fo,
-            std::unique_ptr<frame_timestamp_reader>& timestamp_reader,
+            frame_timestamp_reader* timestamp_reader,
             const rs2_time_t& last_timestamp,
             const unsigned long long& last_frame_number,
             std::shared_ptr<stream_profile_interface> profile);
+
+        rs2_format fourcc_to_rs2_format(uint32_t format) const;
+        rs2_stream fourcc_to_rs2_stream(uint32_t fourcc_format) const;
 
         std::vector<platform::stream_profile> _internal_config;
 
@@ -121,43 +124,18 @@ namespace librealsense
         on_open _on_open;
         std::shared_ptr<metadata_parser_map> _metadata_parsers = nullptr;
 
+        std::map<uint32_t, rs2_format> _fourcc_to_rs2_format;
+        std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream;
+
         frame_source _source;
         device* _owner;
         std::vector<platform::stream_profile> _uvc_profiles;
-        rs2_format fourcc_to_rs2_format(uint32_t format) const;
-        rs2_stream fourcc_to_rs2_stream(uint32_t fourcc_format) const;
-        //rs2_format advanced_to_backend_format(rs2_format format) const;
 
     private:
         //lazy<stream_profiles> _profiles;
         stream_profiles _active_profiles;
         std::vector<native_pixel_format> _pixel_formats;
         signal<sensor_base, bool> on_before_streaming_changes;
-
-        const std::map<uint32_t, rs2_format> _fourcc_to_rs2_format = { 
-            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
-            {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
-            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
-            {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
-            {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
-            {rs_fourcc('C',' ',' ',' '), RS2_FORMAT_RAW8},
-        };
-        //const std::map<rs2_format, uint32_t> _rs2_format_to_fourcc = { {RS2_FORMAT_YUYV, rs_fourcc('Y','U','Y','2')},
-        //    {RS2_FORMAT_RGB8, rs_fourcc('Y','U','Y','2')},
-        //    {RS2_FORMAT_Y8, rs_fourcc('G','R','E','Y')},
-        //    {RS2_FORMAT_Z16, rs_fourcc('Z','1','6',' ')} };
-    //    const std::map<rs2_format, rs2_format> _advanced_to_backend_format = { {RS2_FORMAT_YUYV, RS2_FORMAT_YUYV},
-    //{RS2_FORMAT_RGB8, RS2_FORMAT_YUYV},
-    //{RS2_FORMAT_Y8, RS2_FORMAT_Y8},
-    //{RS2_FORMAT_Z16, RS2_FORMAT_Z16} };
-        const std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream = { 
-            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
-            {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
-            {rs_fourcc('C',' ',' ',' '), RS2_STREAM_CONFIDENCE},
-        };
     };
 
     class processing_block;
@@ -338,10 +316,9 @@ namespace librealsense
         std::map<rs2_stream, std::map<uint32_t, uint32_t>> _fps_and_sampling_frequency_per_rs2_stream;
         std::shared_ptr<platform::hid_device> _hid_device;
         std::mutex _configure_lock;
-        std::map<std::string, stream_profile> _configured_profiles;
+        std::map<std::string, std::shared_ptr<stream_profile_interface>> _configured_profiles;
         std::vector<bool> _is_configured_stream;
         std::vector<platform::hid_sensor> _hid_sensors;
-        std::map<std::string, request_mapping> _hid_mapping;
         std::unique_ptr<frame_timestamp_reader> _hid_iio_timestamp_reader;
         std::unique_ptr<frame_timestamp_reader> _custom_hid_timestamp_reader;
 
@@ -359,7 +336,6 @@ namespace librealsense
     public:
         explicit uvc_sensor(std::string name, std::shared_ptr<platform::uvc_device> uvc_device,
                             std::unique_ptr<frame_timestamp_reader> timestamp_reader, device* dev);
-
         virtual ~uvc_sensor() override;
 
         void open(const stream_profiles& requests) override;
@@ -397,9 +373,7 @@ namespace librealsense
 
     private:
         void acquire_power();
-
         void release_power();
-
         void reset_streaming();
 
         struct power
@@ -428,6 +402,8 @@ namespace librealsense
         private:
             std::weak_ptr<uvc_sensor> _owner;
         };
+
+
 
         std::shared_ptr<platform::uvc_device> _device;
         std::shared_ptr<sensor_base> _sensor_owner;
