@@ -29,6 +29,16 @@ namespace librealsense
     typedef std::function<void(rs2_stream, frame_interface*, callback_invocation_holder)> on_before_frame_callback;
     typedef std::function<void(std::vector<platform::stream_profile>)> on_open;
 
+    struct frame_timestamp_reader
+    {
+        virtual ~frame_timestamp_reader() {}
+
+        virtual double get_frame_timestamp(std::shared_ptr<frame_interface> frame) = 0;
+        virtual unsigned long long get_frame_counter(std::shared_ptr<frame_interface> frame) const = 0;
+        virtual rs2_timestamp_domain get_frame_timestamp_domain(std::shared_ptr<frame_interface> frame) const = 0;
+        virtual void reset() = 0;
+    };
+
     class sensor_base : public std::enable_shared_from_this<sensor_base>,
                         public virtual sensor_interface, public options_container, public virtual info_container, public recommended_proccesing_blocks_base
     {
@@ -96,6 +106,11 @@ namespace librealsense
         stream_profiles resolve_requests(stream_profiles requests);
 
         std::shared_ptr<stream_profile_interface> map_requests(std::shared_ptr<stream_profile_interface> request);
+        std::shared_ptr<frame> generate_frame_from_data(const platform::frame_object& fo,
+            std::unique_ptr<frame_timestamp_reader>& timestamp_reader,
+            const rs2_time_t& last_timestamp,
+            const unsigned long long& last_frame_number,
+            std::shared_ptr<stream_profile_interface> profile);
 
         std::vector<platform::stream_profile> _internal_config;
 
@@ -143,16 +158,6 @@ namespace librealsense
             {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
             {rs_fourcc('C',' ',' ',' '), RS2_STREAM_CONFIDENCE},
         };
-    };
-
-    struct frame_timestamp_reader
-    {
-        virtual ~frame_timestamp_reader() {}
-
-        virtual double get_frame_timestamp(std::shared_ptr<frame_interface> frame) = 0;
-        virtual unsigned long long get_frame_counter(std::shared_ptr<frame_interface> frame) const = 0;
-        virtual rs2_timestamp_domain get_frame_timestamp_domain(std::shared_ptr<frame_interface> frame) const = 0;
-        virtual void reset() = 0;
     };
 
     class processing_block;
@@ -358,7 +363,6 @@ namespace librealsense
         virtual ~uvc_sensor() override;
 
         void open(const stream_profiles& requests) override;
-        void opens(const stream_profiles& requests);
 
         void close() override;
 
