@@ -676,6 +676,16 @@ namespace librealsense
         }
     }
 
+    void unpack_acceleration_axes(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        unpack_accel_axes<RS2_FORMAT_MOTION_XYZ32F>(dest, source, width, height, actual_size);
+    }
+
+    void unpack_gyroscope_axes(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        unpack_gyro_axes<RS2_FORMAT_MOTION_XYZ32F>(dest, source, width, height, actual_size);
+    }
+
     void unpack_yuy2_y8(byte * const d[], const byte * s, int w, int h, int actual_size)
     {
         unpack_yuy2<RS2_FORMAT_Y8>(d, s, w, h, actual_size);

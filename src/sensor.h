@@ -48,10 +48,9 @@ namespace librealsense
                              recommended_proccesing_blocks_interface* owner);
         virtual ~sensor_base() override { _source.flush(); }
 
+        void set_owner_sensor(std::shared_ptr<sensor_base> owner) { _sensor_owner = owner; }
         virtual stream_profiles init_stream_profiles() = 0;
-
         stream_profiles get_stream_profiles(int tag = profile_tag::PROFILE_TAG_ANY) const override;
-
         virtual stream_profiles get_active_streams() const override;
         notifications_callback_ptr get_notifications_callback() const override;
         void register_notifications_callback(notifications_callback_ptr callback) override;
@@ -127,6 +126,7 @@ namespace librealsense
         std::map<uint32_t, rs2_format> _fourcc_to_rs2_format;
         std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream;
 
+        std::shared_ptr<sensor_base> _sensor_owner;
         frame_source _source;
         device* _owner;
         std::vector<platform::stream_profile> _uvc_profiles;
@@ -215,7 +215,6 @@ namespace librealsense
 
     class synthetic_sensor :
         public sensor_base
-        //public extendable_interface
     {
     public:
         explicit synthetic_sensor(std::string name,
@@ -252,6 +251,7 @@ namespace librealsense
         std::pair<processing_block_factory, stream_profiles> find_requests_best_match(stream_profiles sp);
         std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(stream_profiles requests);
         std::shared_ptr<stream_profile_interface> correlate_target_source_profiles(std::shared_ptr<stream_profile_interface> source_profile, std::shared_ptr<stream_profile_interface> request);
+        bool is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, stream_profiles profiles);
 
         std::mutex _configure_lock;
 
@@ -361,7 +361,6 @@ namespace librealsense
         void stop() override;
 
         std::shared_ptr<platform::uvc_device> get_uvc_device() { return _device; }
-        void set_owner_sensor(std::shared_ptr<sensor_base> owner) { _sensor_owner = owner; }
 
         platform::usb_spec get_usb_specification() const { return _device->get_usb_specification(); }
         std::string get_device_path() const { return _device->get_device_location(); }
@@ -406,7 +405,6 @@ namespace librealsense
 
 
         std::shared_ptr<platform::uvc_device> _device;
-        std::shared_ptr<sensor_base> _sensor_owner;
         std::atomic<int> _user_count;
         std::mutex _power_lock;
         std::mutex _configure_lock;

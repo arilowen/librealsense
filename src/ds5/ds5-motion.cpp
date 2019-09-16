@@ -19,6 +19,8 @@
 #include "core/motion.h"
 #include "stream.h"
 #include "environment.h"
+#include "proc/gyro-transform.h"
+#include "proc/acceleration-transform.h"
 
 namespace librealsense
 {
@@ -45,18 +47,15 @@ namespace librealsense
         region_of_interest _roi{};
     };
 
-    class ds5_hid_sensor : public hid_sensor
+    class ds5_hid_sensor : public synthetic_sensor
     {
     public:
-        explicit ds5_hid_sensor(ds5_motion* owner, std::shared_ptr<platform::hid_device> hid_device,
-            std::unique_ptr<frame_timestamp_reader> hid_iio_timestamp_reader,
-            std::unique_ptr<frame_timestamp_reader> custom_hid_timestamp_reader,
-            std::map<rs2_stream, std::map<unsigned, unsigned>> fps_and_sampling_frequency_per_rs2_stream,
-            std::vector<std::pair<std::string, stream_profile>> sensor_name_and_hid_profiles)
-            : hid_sensor(hid_device, move(hid_iio_timestamp_reader), move(custom_hid_timestamp_reader),
-                fps_and_sampling_frequency_per_rs2_stream, sensor_name_and_hid_profiles, owner), _owner(owner)
-        {
-        }
+        explicit ds5_hid_sensor(std::string name,
+            std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
+            device* device,
+            ds5_motion* owner)
+            : synthetic_sensor(name, sensor, device), _owner(owner)
+        {}
 
         rs2_motion_device_intrinsic get_motion_intrinsics(rs2_stream stream) const
         {
@@ -66,7 +65,7 @@ namespace librealsense
         stream_profiles init_stream_profiles() override
         {
             auto lock = environment::get_instance().get_extrinsics_graph().lock();
-            auto results = hid_sensor::init_stream_profiles();
+            auto results = synthetic_sensor::init_stream_profiles();
 
             for (auto p : results)
             {
@@ -80,7 +79,7 @@ namespace librealsense
                 if (p->get_stream_type() == RS2_STREAM_ACCEL || p->get_stream_type() == RS2_STREAM_GYRO)
                 {
                     auto motion = dynamic_cast<motion_stream_profile_interface*>(p.get());
-                    assert(motion); //Expecting to succeed for motion stream (since we are under the "if")
+                    assert(motion);
                     auto st = p->get_stream_type();
                     motion->set_intrinsics([this, st]() { return get_motion_intrinsics(st); });
                 }
@@ -152,7 +151,7 @@ namespace librealsense
         throw std::runtime_error(to_string() << "Motion Intrinsics unknown for stream " << rs2_stream_to_string(stream) << "!");
     }
 
-    std::shared_ptr<hid_sensor> ds5_motion::create_hid_device(std::shared_ptr<context> ctx,
+    std::shared_ptr<synthetic_sensor> ds5_motion::create_hid_device(std::shared_ptr<context> ctx,
                                                                 const std::vector<platform::hid_device_info>& all_hid_infos,
                                                                 const firmware_version& camera_fw_version)
     {
@@ -183,15 +182,30 @@ namespace librealsense
         }
         fps_and_sampling_frequency_per_rs2_stream[RS2_STREAM_ACCEL] = fps_and_frequency_map;
 
-        auto hid_ep = std::make_shared<ds5_hid_sensor>(this, ctx->get_backend().create_hid_device(all_hid_infos.front()),
-                                                        std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(iio_hid_ts_reader), _tf_keeper, enable_global_time_option)),
-                                                        std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(custom_hid_ts_reader), _tf_keeper, enable_global_time_option)),
-                                                        fps_and_sampling_frequency_per_rs2_stream,
-                                                        sensor_name_and_hid_profiles);
+        auto hid_ep = std::make_shared<hid_sensor>(ctx->get_backend().create_hid_device(all_hid_infos.front()),
+            std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(iio_hid_ts_reader), _tf_keeper, enable_global_time_option)),
+            std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(custom_hid_ts_reader), _tf_keeper, enable_global_time_option)),
+            fps_and_sampling_frequency_per_rs2_stream,
+            sensor_name_and_hid_profiles,
+            this);
+
+        auto smart_hid_ep = std::make_shared<ds5_hid_sensor>("Smart Motion Module", hid_ep, this, this);
 
         hid_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         hid_ep->register_pixel_format(pf_accel_axes);
         hid_ep->register_pixel_format(pf_gyro_axes);
+
+        smart_hid_ep->register_processing_block(
+            { {RS2_FORMAT_MOTION_XYZ32F} },
+            { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
+            []() { return std::make_shared<acceleration_transform>();
+        });
+
+        smart_hid_ep->register_processing_block(
+            { {RS2_FORMAT_MOTION_XYZ32F} },
+            { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
+            []() { return std::make_shared<gyro_transform>();
+        });
 
         uint16_t pid = static_cast<uint16_t>(strtoul(all_hid_infos.front().pid.data(), nullptr, 16));
 
@@ -202,7 +216,7 @@ namespace librealsense
             hid_ep->register_pixel_format(pf_gpio_timestamp);
         }
 
-        return hid_ep;
+        return smart_hid_ep;
     }
 
     std::shared_ptr<auto_exposure_mechanism> ds5_motion::register_auto_exposure_options(uvc_sensor* uvc_ep, const platform::extension_unit* fisheye_xu)
@@ -324,11 +338,11 @@ namespace librealsense
                 LOG_INFO("Motion Module - no intrinsic calibration, " << ex.what());
 
                 // transform IMU axes if supported
-                hid_ep->register_on_before_frame_callback(align_imu_axes);
+                //hid_ep->register_on_before_frame_callback(align_imu_axes);
             }
 
             // HID metadata attributes
-            hid_ep->register_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP, make_hid_header_parser(&platform::hid_header::timestamp));
+            hid_ep->get_raw_sensor()->register_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP, make_hid_header_parser(&platform::hid_header::timestamp));
         }
     }
 

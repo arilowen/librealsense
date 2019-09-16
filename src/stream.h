@@ -121,21 +121,6 @@ namespace librealsense
             return res;
         }
 
-        std::shared_ptr<stream_profile_interface> deep_clone() const
-        {
-            auto res = std::make_shared<video_stream_profile>(get_backend_profile());
-            res->set_unique_id(get_unique_id());
-            res->set_dims(get_width(), get_height());
-            std::function<rs2_intrinsics()> int_func = _calc_intrinsics;
-            res->set_intrinsics([int_func]() { return int_func(); });
-            res->set_framerate(get_framerate());
-            res->set_stream_index(get_stream_index());
-            res->set_stream_type(get_stream_type());
-            res->set_format(get_format());
-            environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*res, *this);
-            return res;
-        }
-
         bool operator==(const video_stream_profile& other) const
         {
             return get_height() == other.get_height() &&
@@ -163,15 +148,27 @@ namespace librealsense
         explicit motion_stream_profile(platform::stream_profile sp)
             : stream_profile_base(std::move(sp)),
             _calc_intrinsics([]() -> rs2_motion_device_intrinsic { throw not_implemented_exception("No intrinsics are available for this stream profile!"); })
-            {
-            }
-            rs2_motion_device_intrinsic get_intrinsics() const override { return _calc_intrinsics(); }
-            void set_intrinsics(std::function<rs2_motion_device_intrinsic()> calc) override { _calc_intrinsics = calc; }
+        {}
 
-            void update(std::shared_ptr<extension_snapshot> ext) override
-            {
-                return; //TODO: apply changes here
-            }
+        rs2_motion_device_intrinsic get_intrinsics() const override { return _calc_intrinsics(); }
+        void set_intrinsics(std::function<rs2_motion_device_intrinsic()> calc) override { _calc_intrinsics = calc; }
+
+        void update(std::shared_ptr<extension_snapshot> ext) override
+        {
+            return; //TODO: apply changes here
+        }
+
+        std::shared_ptr<stream_profile_interface> clone() const override
+        {
+            auto res = std::make_shared<motion_stream_profile>(platform::stream_profile{});
+            res->set_unique_id(environment::get_instance().generate_stream_id());
+            std::function<rs2_motion_device_intrinsic()> init_func = _calc_intrinsics;
+            res->set_intrinsics([init_func]() { return init_func(); });
+            res->set_framerate(get_framerate());
+            environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*res, *this);
+            return res;
+        }
+
     private:
         std::function<rs2_motion_device_intrinsic()> _calc_intrinsics;
     };

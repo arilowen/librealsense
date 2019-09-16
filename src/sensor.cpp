@@ -549,9 +549,7 @@ namespace librealsense
         auto on = std::unique_ptr<power>(new power(std::dynamic_pointer_cast<uvc_sensor>(shared_from_this())));
 
         _source.init(_metadata_parsers);
-        //_source.set_sensor(this->shared_from_this());
         _source.set_sensor(_sensor_owner);
-        //auto req_profiles = resolve_requests(requests); // TODO - Ariel - maybe delete this
 
         std::vector<platform::stream_profile> commited;
 
@@ -607,9 +605,7 @@ namespace librealsense
                         auto video = (video_frame*)fh.frame;
                         video->assign(width, height, width * bpp / 8, bpp);
                         video->set_timestamp_domain(timestamp_domain);
-                        //dest.push_back(const_cast<byte*>(video->get_frame_data()));
                         fh->set_stream(req_profile_base);
-                        //refs.push_back(std::move(fh));
                     }
                     else
                     {
@@ -1064,9 +1060,9 @@ namespace librealsense
             throw wrong_api_call_sequence_exception("start_streaming(...) failed. Hid device was not opened!");
 
         _source.set_callback(callback);
-
         _source.init(_metadata_parsers);
-        _source.set_sensor(this->shared_from_this());
+        _source.set_sensor(_sensor_owner);
+
         unsigned long long last_frame_number = 0;
         rs2_time_t last_timestamp = 0;
         raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
@@ -1150,7 +1146,7 @@ namespace librealsense
 
                 last_frame_number = frame_counter;
                 last_timestamp = timestamp;
-                auto frame = _source.alloc_frame(RS2_EXTENSION_MOTION_FRAME, data_size, fr->additional_data, true);
+                frame_holder frame = _source.alloc_frame(RS2_EXTENSION_MOTION_FRAME, data_size, fr->additional_data, true);
                 memcpy((void*)frame->get_frame_data(), fr->data.data(), sizeof(byte)*fr->data.size());
                 if (!frame)
                 {
@@ -1457,19 +1453,50 @@ namespace librealsense
         return cloned;
     }
 
+    bool synthetic_sensor::is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, stream_profiles profiles)
+    {
+        auto dup_iter = std::find_if(profiles.begin(), profiles.end(), [&duplicate](std::shared_ptr<stream_profile_interface> spi)
+        {
+            auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
+            auto cp = std::dynamic_pointer_cast<video_stream_profile>(duplicate);
+            bool res = true;
+
+            if (sp && cp)
+                res = sp->get_height() == cp->get_height() &&
+                sp->get_width() == cp->get_width();
+
+            return (res &&
+                spi->get_format() == duplicate->get_format() &&
+                //spi->get_unique_id() == p->get_unique_id() &&
+                spi->get_stream_index() == duplicate->get_stream_index() &&
+                spi->get_stream_type() == duplicate->get_stream_type() &&
+                spi->get_framerate() == duplicate->get_framerate());
+        });
+
+        return dup_iter != profiles.end();
+    }
+
     stream_profiles synthetic_sensor::init_stream_profiles()
     {
         stream_profiles result_profiles;
-        //profiles = raw.get_profiles();
         auto profiles = _raw_sensor->get_stream_profiles();
 
-        // cache each profile to a single processing block factory for an easy one to one mapping.
-        //std::unordered_map<std::shared_ptr<stream_profile_interface>, processing_block_factory> profile_to_pb_factory;
+        // motion profiles are passed-through
+        if (Is<hid_sensor, sensor_base>(_raw_sensor))
+        {
+            for (auto profile : profiles)
+            {
+                auto target = stream_info(profile);
+                _source_to_target_profiles_map[profile].push_back(profile);
+                _target_to_source_profiles_map[target].push_back(profile);
 
-        //foreach pbf:
+            }
+            return profiles;
+        }
+
+        // handle non-motion profiles
         for (auto&& pbf : _pb_factories)
         {
-            //    in = pbf.input
             auto& sources = pbf.get_source_info();
             auto& targets = pbf.get_target_info();
 
@@ -1484,14 +1511,6 @@ namespace librealsense
                         for (auto&& target : targets)
                         {
                             target.fps = profile->get_framerate();
-                            //target.stream_resolution = &rotate_resolution;
-                            //auto cloned_profile = std::make_shared<video_stream_profile>(vsp->get_backend_profile());
-                            ////cloned_profile->set_unique_id(profile->get_unique_id());
-                            //cloned_profile->set_dims(target.width, target.height);
-                            //cloned_profile->set_format(target.format);
-                            //cloned_profile->set_stream_index(target.index);
-                            //cloned_profile->set_stream_type(target.stream);
-                            //cloned_profile->set_framerate(target.fps);
 
                             auto cloned_profile = clone_profile(profile);
                             cloned_profile->set_format(target.format);
@@ -1513,32 +1532,15 @@ namespace librealsense
                             {
                                 _source_to_target_profiles_map[profile].push_back(cloned_profile);
                             }
+
+                            // cache each target profile to its source profiles which were generated from.
                             _target_to_source_profiles_map[target].push_back(profile);
 
                             // disregard duplicated from profiles list
-                            if (std::find_if(result_profiles.begin(), result_profiles.end(), [&cloned_profile](std::shared_ptr<stream_profile_interface> spi)
-                            {
-                                auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
-                                auto cp = std::dynamic_pointer_cast<video_stream_profile>(cloned_profile);
-                                bool res = true;
-
-                                if (sp && cp)
-                                    res = sp->get_height() == cp->get_height() &&
-                                    sp->get_width() == cp->get_width();
-
-                                return (res &&
-                                    sp->get_format() == cloned_profile->get_format() &&
-                                    //sp->get_unique_id() == p->get_unique_id() &&
-                                    sp->get_stream_index() == cloned_profile->get_stream_index() &&
-                                    sp->get_stream_type() == cloned_profile->get_stream_type() &&
-                                    sp->get_framerate() == cloned_profile->get_framerate());
-                            }) != result_profiles.end())
+                            if (is_duplicated_profile(cloned_profile, result_profiles))
                                 continue;
 
                             result_profiles.push_back(cloned_profile);
-
-                            //_source_to_target_profiles_map[profile][target.format] = cloned_profile;
-                            //_target_to_source_profiles_map[cloned_profile] = profile;
                         }
                     }
                 }
@@ -1694,9 +1696,7 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_configure_lock);
         auto resolved_req = resolve_requests(requests);
 
-        auto raw_sensor = std::dynamic_pointer_cast<uvc_sensor>(_raw_sensor);
-        raw_sensor->set_owner_sensor(this->shared_from_this()); // TODO - Ariel - maybe move set_owner_sensor method to sensor_base if it is common for hid and uvc
-
+        _raw_sensor->set_owner_sensor(this->shared_from_this()); // TODO - Ariel - maybe move set_owner_sensor method to sensor_base if it is common for hid and uvc
         _raw_sensor->open(resolved_req);
     }
 
@@ -1705,7 +1705,6 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_configure_lock);
         _raw_sensor->close();
         _formats_to_processing_block.erase(begin(_formats_to_processing_block), end(_formats_to_processing_block));
-        // TODO - Ariel - reset stream to processing block map
     }
 
     template<class T>
