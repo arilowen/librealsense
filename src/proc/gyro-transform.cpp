@@ -32,10 +32,9 @@ namespace librealsense
             _target_stream_profile = p.clone(p.stream_type(), p.stream_index(), RS2_FORMAT_MOTION_XYZ32F);
         }
 
-        rs2::frame ret;
-        int width = 1, height = 1;
-        auto vf = f.as<rs2::motion_frame>();
-        ret = source.allocate_video_frame(_target_stream_profile, f, _traget_bpp,
+        int width = f.get_data_size();
+        int height = 1;
+        rs2::frame ret = source.allocate_motion_frame(_target_stream_profile, f, _traget_bpp,
             width, height, width * _traget_bpp, RS2_EXTENSION_MOTION_FRAME);
 
         byte* planes[1];

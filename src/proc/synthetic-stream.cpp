@@ -329,7 +329,7 @@ namespace librealsense
         frame_additional_data data = of->additional_data;
         auto res = _actual_source.alloc_frame(frame_type, stride * height, data, true);
         if (!res) throw wrong_api_call_sequence_exception("Out of frame resources!");
-        vf = static_cast<video_frame*>(res);
+        vf = dynamic_cast<video_frame*>(res);
         vf->metadata_parsers = of->metadata_parsers;
         vf->assign(width, height, stride, bpp);
         vf->set_sensor(original->get_sensor());
@@ -340,6 +340,26 @@ namespace librealsense
             original->acquire();
             (dynamic_cast<depth_frame*>(res))->set_original(original);
         }
+
+        return res;
+    }
+
+    frame_interface* synthetic_source::allocate_motion_frame(std::shared_ptr<stream_profile_interface> stream,
+        frame_interface* original,
+        int bpp,
+        int width,
+        int height,
+        int stride,
+        rs2_extension frame_type)
+    {
+        auto of = dynamic_cast<frame*>(original);
+        frame_additional_data data = of->additional_data;
+        auto res = _actual_source.alloc_frame(frame_type, stride * height, data, true);
+        if (!res) throw wrong_api_call_sequence_exception("Out of frame resources!");
+        auto mf = dynamic_cast<motion_frame*>(res);
+        mf->metadata_parsers = of->metadata_parsers;
+        mf->set_sensor(original->get_sensor());
+        res->set_stream(stream);
 
         return res;
     }
