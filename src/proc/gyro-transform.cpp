@@ -1,5 +1,3 @@
-#include "gyro-transform.h"
-
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2019 Intel Corporation. All Rights Reserved.
 
@@ -21,7 +19,7 @@ namespace librealsense
     gyro_transform::gyro_transform(const char* name)
         : stream_filter_processing_block(name)
     {
-        _stream_filter.stream = RS2_STREAM_ACCEL;
+        _stream_filter.stream = RS2_STREAM_GYRO;
         _stream_filter.format = RS2_FORMAT_MOTION_XYZ32F;
     }
 

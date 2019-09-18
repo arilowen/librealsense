@@ -10,11 +10,12 @@ namespace librealsense
     class LRS_EXTENSION_API acceleration_transform : public stream_filter_processing_block
     {
     public:
-        acceleration_transform();
+        acceleration_transform(frame_callback_ptr cb = nullptr);
 
     protected:
         acceleration_transform(const char* name);
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+        frame_callback_ptr _callback;
 
     private:
         rs2::stream_profile _target_stream_profile;

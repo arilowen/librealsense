@@ -36,10 +36,8 @@ namespace librealsense
             //_target_stream_profile = rs2::stream_profile(b.get());
         }
 
-        rs2::frame ret;
-
         auto vf = f.as<rs2::video_frame>();
-        ret = source.allocate_video_frame(_target_stream_profile, f, _traget_bpp,
+        rs2::frame ret = source.allocate_video_frame(_target_stream_profile, f, _traget_bpp,
             vf.get_width(), vf.get_height(), vf.get_width() * _traget_bpp, RS2_EXTENSION_VIDEO_FRAME);
 
         byte* planes[1];

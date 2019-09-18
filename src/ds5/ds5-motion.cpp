@@ -195,10 +195,24 @@ namespace librealsense
         hid_ep->register_pixel_format(pf_accel_axes);
         hid_ep->register_pixel_format(pf_gyro_axes);
 
+
+        float3x3 imu_to_depth = _mm_calib->imu_to_depth_alignment();
+        auto align_imu_axes = [imu_to_depth](frame_interface* fr)
+        {
+            if (fr->get_stream()->get_format() == RS2_FORMAT_MOTION_XYZ32F)
+            {
+                auto xyz = (float3*)(fr->get_frame_data());
+
+                // The IMU sensor orientation shall be aligned with depth sensor's coordinate system
+                *xyz = imu_to_depth * (*xyz);
+            }
+        };
+        frame_callback_ptr post_process_cb = std::make_shared<internal_frame_callback<decltype(align_imu_axes)>>(align_imu_axes);
+
         smart_hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
-            []() { return std::make_shared<acceleration_transform>();
+            [=]() { return std::make_shared<acceleration_transform>(post_process_cb);
         });
 
         smart_hid_ep->register_processing_block(
@@ -338,7 +352,7 @@ namespace librealsense
                 LOG_INFO("Motion Module - no intrinsic calibration, " << ex.what());
 
                 // transform IMU axes if supported
-                //hid_ep->register_on_before_frame_callback(align_imu_axes);
+                hid_ep->get_raw_sensor()->register_on_before_frame_callback(align_imu_axes);
             }
 
             // HID metadata attributes

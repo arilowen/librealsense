@@ -1066,108 +1066,105 @@ namespace librealsense
         unsigned long long last_frame_number = 0;
         rs2_time_t last_timestamp = 0;
         raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
-        for (auto cp : _configured_profiles)
+
+        _hid_device->start_capture([this, last_frame_number, last_timestamp](const platform::sensor_data& sensor_data) mutable
         {
-            _hid_device->start_capture([this, cp, last_frame_number, last_timestamp](const platform::sensor_data& sensor_data) mutable
+            auto system_time = environment::get_instance().get_time_service()->get_time();
+            auto timestamp_reader = _hid_iio_timestamp_reader.get();
+            static const std::string custom_sensor_name = "custom";
+            auto sensor_name = sensor_data.sensor.name;
+            auto request = _configured_profiles[sensor_name];
+            bool is_custom_sensor = false;
+            static const uint32_t custom_source_id_offset = 16;
+            uint8_t custom_gpio = 0;
+            auto custom_stream_type = RS2_STREAM_ANY;
+            if (sensor_name == custom_sensor_name)
             {
-                auto system_time = environment::get_instance().get_time_service()->get_time();
-                auto timestamp_reader = _hid_iio_timestamp_reader.get();
-                auto request = cp.second;
+                custom_gpio = *(reinterpret_cast<uint8_t*>((uint8_t*)(sensor_data.fo.pixels) + custom_source_id_offset));
+                custom_stream_type = custom_gpio_to_stream_type(custom_gpio);
 
-                static const std::string custom_sensor_name = "custom";
-                auto sensor_name = sensor_data.sensor.name;
-                bool is_custom_sensor = false;
-                static const uint32_t custom_source_id_offset = 16;
-                uint8_t custom_gpio = 0;
-                auto custom_stream_type = RS2_STREAM_ANY;
-                if (sensor_name == custom_sensor_name)
+                if (!_is_configured_stream[custom_stream_type])
                 {
-                    custom_gpio = *(reinterpret_cast<uint8_t*>((uint8_t*)(sensor_data.fo.pixels) + custom_source_id_offset));
-                    custom_stream_type = custom_gpio_to_stream_type(custom_gpio);
-
-                    if (!_is_configured_stream[custom_stream_type])
-                    {
-                        LOG_DEBUG("Unrequested " << rs2_stream_to_string(custom_stream_type) << " frame was dropped.");
-                        return;
-                    }
-
-                    is_custom_sensor = true;
-                    timestamp_reader = _custom_hid_timestamp_reader.get();
-                }
-
-                if (!this->is_streaming())
-                {
-                    auto stream_type = request->get_stream_type();
-                    LOG_INFO("HID Frame received when Streaming is not active,"
-                        << get_string(stream_type)
-                        << ",Arrived," << std::fixed << system_time);
+                    LOG_DEBUG("Unrequested " << rs2_stream_to_string(custom_stream_type) << " frame was dropped.");
                     return;
                 }
 
-                //////////////////////////////////
-                auto fr = generate_frame_from_data(sensor_data.fo, timestamp_reader, last_timestamp, last_frame_number, request);
-                auto frame_counter = fr->additional_data.frame_number;
-                auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(fr);
-                auto timestamp = fr->additional_data.timestamp;
-                auto bpp = get_image_bpp(request->get_format());
-                //////////////////////////////////
+                is_custom_sensor = true;
+                timestamp_reader = _custom_hid_timestamp_reader.get();
+            }
 
-                auto data_size = sensor_data.fo.frame_size;
-                //mode.profile.width = (uint32_t)data_size;
-                //mode.profile.height = 1;
+            if (!this->is_streaming())
+            {
+                auto stream_type = request->get_stream_type();
+                LOG_INFO("HID Frame received when Streaming is not active,"
+                    << get_string(stream_type)
+                    << ",Arrived," << std::fixed << system_time);
+                return;
+            }
 
-                // Determine the timestamp for this HID frame
-                //auto timestamp = timestamp_reader->get_frame_timestamp(fr);
-                //auto frame_counter = timestamp_reader->get_frame_counter(fr);
-                //auto ts_domain = timestamp_reader->get_frame_timestamp_domain(fr);
+            //////////////////////////////////
+            auto fr = generate_frame_from_data(sensor_data.fo, timestamp_reader, last_timestamp, last_frame_number, request);
+            auto frame_counter = fr->additional_data.frame_number;
+            auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(fr);
+            auto timestamp = fr->additional_data.timestamp;
+            auto bpp = get_image_bpp(request->get_format());
+            //////////////////////////////////
 
-                //frame_additional_data additional_data(timestamp,
-                //    frame_counter,
-                //    system_time,
-                //    static_cast<uint8_t>(sensor_data.fo.metadata_size),
-                //    (const uint8_t*)sensor_data.fo.metadata,
-                //    sensor_data.fo.backend_time,
-                //    last_timestamp,
-                //    last_frame_number,
-                //    false);
+            auto data_size = sensor_data.fo.frame_size;
+            //mode.profile.width = (uint32_t)data_size;
+            //mode.profile.height = 1;
 
-                //additional_data.timestamp_domain = ts_domain;
-                //additional_data.backend_timestamp = sensor_data.fo.backend_time;
+            // Determine the timestamp for this HID frame
+            //auto timestamp = timestamp_reader->get_frame_timestamp(fr);
+            //auto frame_counter = timestamp_reader->get_frame_counter(fr);
+            //auto ts_domain = timestamp_reader->get_frame_timestamp_domain(fr);
+
+            //frame_additional_data additional_data(timestamp,
+            //    frame_counter,
+            //    system_time,
+            //    static_cast<uint8_t>(sensor_data.fo.metadata_size),
+            //    (const uint8_t*)sensor_data.fo.metadata,
+            //    sensor_data.fo.backend_time,
+            //    last_timestamp,
+            //    last_frame_number,
+            //    false);
+
+            //additional_data.timestamp_domain = ts_domain;
+            //additional_data.backend_timestamp = sensor_data.fo.backend_time;
 
 
 
-                LOG_DEBUG("FrameAccepted," << get_string(request->get_stream_type())
-                    << ",Counter," << std::dec << frame_counter << ",Index,0"
-                    << ",BackEndTS," << std::fixed << sensor_data.fo.backend_time
-                    << ",SystemTime," << std::fixed << system_time
-                    << " ,diff_ts[Sys-BE]," << system_time - sensor_data.fo.backend_time
-                    << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
-                    << ",last_frame_number," << last_frame_number << ",last_timestamp," << last_timestamp);
+            LOG_DEBUG("FrameAccepted," << get_string(request->get_stream_type())
+                << ",Counter," << std::dec << frame_counter << ",Index,0"
+                << ",BackEndTS," << std::fixed << sensor_data.fo.backend_time
+                << ",SystemTime," << std::fixed << system_time
+                << " ,diff_ts[Sys-BE]," << system_time - sensor_data.fo.backend_time
+                << ",TS," << std::fixed << timestamp << ",TS_Domain," << rs2_timestamp_domain_to_string(timestamp_domain)
+                << ",last_frame_number," << last_frame_number << ",last_timestamp," << last_timestamp);
 
-                last_frame_number = frame_counter;
-                last_timestamp = timestamp;
-                frame_holder frame = _source.alloc_frame(RS2_EXTENSION_MOTION_FRAME, data_size, fr->additional_data, true);
-                memcpy((void*)frame->get_frame_data(), fr->data.data(), sizeof(byte)*fr->data.size());
-                if (!frame)
-                {
-                    LOG_INFO("Dropped frame. alloc_frame(...) returned nullptr");
-                    return;
-                }
-                frame->set_stream(request);
+            last_frame_number = frame_counter;
+            last_timestamp = timestamp;
+            frame_holder frame = _source.alloc_frame(RS2_EXTENSION_MOTION_FRAME, data_size, fr->additional_data, true);
+            memcpy((void*)frame->get_frame_data(), fr->data.data(), sizeof(byte)*fr->data.size());
+            if (!frame)
+            {
+                LOG_INFO("Dropped frame. alloc_frame(...) returned nullptr");
+                return;
+            }
+            frame->set_stream(request);
 
-                //std::vector<byte*> dest{ const_cast<byte*>(frame->get_frame_data()) };
-                //mode.unpacker->unpack(dest.data(), (const byte*)sensor_data.fo.pixels, mode.profile.width, mode.profile.height);
+            //std::vector<byte*> dest{ const_cast<byte*>(frame->get_frame_data()) };
+            //mode.unpacker->unpack(dest.data(), (const byte*)sensor_data.fo.pixels, mode.profile.width, mode.profile.height);
 
-                //if (_on_before_frame_callback)
-                //{
-                //    auto callback = _source.begin_callback();
-                //    auto stream_type = frame->get_stream()->get_stream_type();
-                //    _on_before_frame_callback(stream_type, frame, std::move(callback));
-                //}
+            //if (_on_before_frame_callback)
+            //{
+            //    auto callback = _source.begin_callback();
+            //    auto stream_type = frame->get_stream()->get_stream_type();
+            //    _on_before_frame_callback(stream_type, frame, std::move(callback));
+            //}
 
-                _source.invoke_callback(std::move(frame));
-            });
-        }
+            _source.invoke_callback(std::move(frame));
+        });
         _is_streaming = true;
     }
 
@@ -1297,7 +1294,7 @@ namespace librealsense
         register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
 
         _fourcc_to_rs2_format = {
-            {rs_fourcc('Y', 'U', 'Y', '2'), RS2_FORMAT_YUYV},
+            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
             {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
             {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
             {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
@@ -1553,10 +1550,9 @@ namespace librealsense
     }
 
     std::pair<processing_block_factory, stream_profiles> synthetic_sensor::find_requests_best_match(stream_profiles requests)
-    {
-        //// best fitting processing block is defined as the processing block which its sources
-        //// covers the maximum amount of requests.
-
+    {        
+        // for video stream, the best fitting processing block is defined as the processing block which its sources
+        // covers the maximum amount of requests.
         stream_profiles best_match_requests;
         processing_block_factory best_match_processing_block_factory;
 
@@ -1890,10 +1886,22 @@ namespace librealsense
         auto tgts = _target_info;
         for (auto&& req : requests)
         {
-            if (std::find_if(begin(tgts), end(tgts), [&req](auto tgt) {
-                return req->get_format() == tgt.format;
-            }) != end(tgts))
-                satisfied_req.push_back(req);
+            // for motion profile, request is satisfied if it has the same format and stream type.
+            if (Is<motion_stream_profile, stream_profile_interface>(req))
+            {
+                if (std::find_if(begin(tgts), end(tgts), [&req](auto tgt) {
+                    return req->get_format() == tgt.format &&
+                        req->get_stream_type() == tgt.stream;
+                }) != end(tgts))
+                    satisfied_req.push_back(req);
+            }
+            else
+            {
+                if (std::find_if(begin(tgts), end(tgts), [&req](auto tgt) {
+                    return req->get_format() == tgt.format;
+                }) != end(tgts))
+                    satisfied_req.push_back(req);
+            }
         }
         return satisfied_req;
     }

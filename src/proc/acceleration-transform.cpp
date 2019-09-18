@@ -12,9 +12,11 @@
 
 namespace librealsense
 {
-    acceleration_transform::acceleration_transform()
+    acceleration_transform::acceleration_transform(frame_callback_ptr cb)
         : acceleration_transform("Acceleration Transform")
-    {}
+    {
+        _callback = cb;
+    }
 
     acceleration_transform::acceleration_transform(const char* name)
         : stream_filter_processing_block(name)
@@ -32,14 +34,18 @@ namespace librealsense
             _target_stream_profile = p.clone(p.stream_type(), p.stream_index(), RS2_FORMAT_MOTION_XYZ32F);
         }
 
-        int width = 1, height = 1;
+        int width = f.get_data_size();
+        int height = 1;
         rs2::frame ret = source.allocate_video_frame(_target_stream_profile, f, _traget_bpp,
-            width, height, width * _traget_bpp, RS2_EXTENSION_VIDEO_FRAME);
+            width, height, width * _traget_bpp, RS2_EXTENSION_MOTION_FRAME);
 
         byte* planes[1];
         planes[0] = (byte*)ret.get_data();
 
         unpack_acceleration_axes(planes, (const byte*)f.get_data(), width, height, width * height * _traget_bpp);
+
+        if (_callback)
+            _callback->on_frame((rs2_frame*)ret.get());
 
         return ret;
     }
