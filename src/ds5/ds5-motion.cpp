@@ -19,8 +19,7 @@
 #include "core/motion.h"
 #include "stream.h"
 #include "environment.h"
-#include "proc/gyro-transform.h"
-#include "proc/acceleration-transform.h"
+#include "proc/motion-transform.h"
 
 namespace librealsense
 {
