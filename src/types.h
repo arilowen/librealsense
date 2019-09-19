@@ -41,9 +41,9 @@
 #include <utility>                          // For std::forward
 #include <limits>
 #include <iomanip>
-
 #include "backend.h"
 #include "concurrency.h"
+
 #if BUILD_EASYLOGGINGPP
 #include "../third-party/easyloggingpp/src/easylogging++.h"
 #endif // BUILD_EASYLOGGINGPP
@@ -620,13 +620,29 @@ namespace librealsense
     typedef std::tuple<uint32_t, int, size_t> native_pixel_format_tuple;
     typedef std::tuple<rs2_stream, int, rs2_format> output_tuple;
     typedef std::tuple<platform::stream_profile_tuple, native_pixel_format_tuple, std::vector<output_tuple>> request_mapping_tuple;
+    
+    struct resolution
+    {
+        uint32_t width, height;
+    };
+    using resolution_func = std::function<resolution(resolution res)>;
 
     struct stream_profile
     {
+        stream_profile(rs2_format fmt = RS2_FORMAT_ANY,
+            rs2_stream strm = RS2_STREAM_ANY,
+            int idx = 0,
+            uint32_t w = 0, uint32_t h = 0,
+            uint32_t framerate = 0,
+            resolution_func res_func = [](resolution res) { return res; }) :
+            format(fmt), stream(strm), index(idx), height(h), width(w), stream_resolution(res_func), fps(framerate)
+        {};
+
+        rs2_format format;
         rs2_stream stream;
         int index;
         uint32_t width, height, fps;
-        rs2_format format;
+        resolution_func stream_resolution; // Calculates the relevant resolution from the given backend resolution.
     };
 
 
@@ -641,6 +657,14 @@ namespace librealsense
             (a.stream == b.stream);
     }
 
+    inline bool operator<(const stream_profile & lhs,
+        const stream_profile & rhs)
+    {
+        return (lhs.format < rhs.format ||
+            lhs.index < rhs.index && lhs.format != rhs.format ||
+            lhs.stream < rhs.stream);
+    }
+
     struct stream_descriptor
     {
         stream_descriptor() : type(RS2_STREAM_ANY), index(0) {}
@@ -649,13 +673,6 @@ namespace librealsense
         rs2_stream type;
         int index;
     };
-
-    struct resolution
-    {
-        uint32_t width, height;
-    };
-
-    using resolution_func = std::function<resolution(resolution res)>;
 
     struct stream_output {
         stream_output(stream_descriptor stream_desc_in,

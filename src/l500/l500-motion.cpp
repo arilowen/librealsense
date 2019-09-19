@@ -12,13 +12,13 @@ namespace librealsense
 
 #ifdef _WIN32
         std::vector<std::pair<std::string, stream_profile>> l500_sensor_name_and_hid_profiles =
-        {{ "HID Sensor Class Device: Gyroscope",     {RS2_STREAM_GYRO,  0, 1, 1, 100, RS2_FORMAT_MOTION_XYZ32F}},
-         { "HID Sensor Class Device: Gyroscope",     {RS2_STREAM_GYRO,  0, 1, 1, 200, RS2_FORMAT_MOTION_XYZ32F}},
-         { "HID Sensor Class Device: Gyroscope",     {RS2_STREAM_GYRO,  0, 1, 1, 400, RS2_FORMAT_MOTION_XYZ32F}},
-         { "HID Sensor Class Device: Accelerometer", {RS2_STREAM_ACCEL, 0, 1, 1, 50, RS2_FORMAT_MOTION_XYZ32F}},
-         { "HID Sensor Class Device: Accelerometer", {RS2_STREAM_ACCEL, 0, 1, 1, 100, RS2_FORMAT_MOTION_XYZ32F}},
-         { "HID Sensor Class Device: Accelerometer", {RS2_STREAM_ACCEL, 0, 1, 1, 200, RS2_FORMAT_MOTION_XYZ32F}},
-         { "HID Sensor Class Device: Accelerometer", {RS2_STREAM_ACCEL, 0, 1, 1, 400, RS2_FORMAT_MOTION_XYZ32F}} };
+        {{ "HID Sensor Class Device: Gyroscope",     {  RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO,  0, 1, 1, 100  }},
+         { "HID Sensor Class Device: Gyroscope",     {  RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO,  0, 1, 1, 200  }},
+         { "HID Sensor Class Device: Gyroscope",     {  RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO,  0, 1, 1, 400  }},
+         { "HID Sensor Class Device: Accelerometer", {  RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, 50   }},
+         { "HID Sensor Class Device: Accelerometer", {  RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, 100  }},
+         { "HID Sensor Class Device: Accelerometer", {  RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, 200  }},
+         { "HID Sensor Class Device: Accelerometer", {  RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, 400  }}};
 
         // Translate frequency to SENSOR_PROPERTY_CURRENT_REPORT_INTERVAL
         std::map<rs2_stream, std::map<unsigned, unsigned>> l500_fps_and_sampling_frequency_per_rs2_stream =
@@ -32,13 +32,13 @@ namespace librealsense
 
 #else
     std::vector<std::pair<std::string, stream_profile>> l500_sensor_name_and_hid_profiles =
-   {{ "gyro_3d",        {RS2_STREAM_GYRO,  0, 1, 1, 100, RS2_FORMAT_MOTION_XYZ32F}},
-    { "gyro_3d",        {RS2_STREAM_GYRO,  0, 1, 1, 200, RS2_FORMAT_MOTION_XYZ32F}},
-    { "gyro_3d",        {RS2_STREAM_GYRO,  0, 1, 1, 400, RS2_FORMAT_MOTION_XYZ32F}},
-    { "accel_3d",       {RS2_STREAM_ACCEL,  0, 1, 1, 50, RS2_FORMAT_MOTION_XYZ32F}},
-    { "accel_3d",       {RS2_STREAM_ACCEL, 0, 1, 1, 100, RS2_FORMAT_MOTION_XYZ32F}},
-    { "accel_3d",       {RS2_STREAM_ACCEL, 0, 1, 1, 200, RS2_FORMAT_MOTION_XYZ32F}},
-    { "accel_3d",       {RS2_STREAM_ACCEL, 0, 1, 1, 400, RS2_FORMAT_MOTION_XYZ32F}}};
+   {{ "gyro_3d",        {   RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO,  0, 1, 1, 100   }},
+    { "gyro_3d",        {   RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO,  0, 1, 1, 200   }},
+    { "gyro_3d",        {   RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO,  0, 1, 1, 400   }},
+    { "accel_3d",       {   RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, 50    }},
+    { "accel_3d",       {   RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, 100   }},
+    { "accel_3d",       {   RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, 200   }},
+    { "accel_3d",       {   RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, 400   }}};
 
    // The frequency selector is vendor and model-specific
    std::map<rs2_stream, std::map<unsigned, unsigned>> l500_fps_and_sampling_frequency_per_rs2_stream =
@@ -114,10 +114,6 @@ namespace librealsense
             l500_fps_and_sampling_frequency_per_rs2_stream,
             l500_sensor_name_and_hid_profiles,
             this);
-
-
-        //hid_ep->register_pixel_format(pf_accel_axes);
-        //hid_ep->register_pixel_format(pf_gyro_axes);
 
         auto smart_hid_ep = std::make_shared<l500_hid_sensor>("Smart Motion Module", hid_ep, this, this);
         smart_hid_ep->register_processing_block(

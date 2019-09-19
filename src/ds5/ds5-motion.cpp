@@ -176,7 +176,7 @@ namespace librealsense
 
         for (auto&& elem : accel_fps_rates)
         {
-            sensor_name_and_hid_profiles.push_back({ accel_sensor_name, { RS2_STREAM_ACCEL, 0, 1, 1, static_cast<uint16_t>(elem), RS2_FORMAT_MOTION_XYZ32F } });
+            sensor_name_and_hid_profiles.push_back({ accel_sensor_name, { RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, 0, 1, 1, static_cast<uint16_t>(elem)} });
             fps_and_frequency_map.emplace(unsigned(elem), hid_fps_translation.at(elem));
         }
         fps_and_sampling_frequency_per_rs2_stream[RS2_STREAM_ACCEL] = fps_and_frequency_map;

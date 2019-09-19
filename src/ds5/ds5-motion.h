@@ -248,8 +248,8 @@ namespace librealsense
         // Bandwidth parameters required for HID sensors
         // The Acceleration configuration will be resolved according to the IMU sensor type at run-time
         std::vector<std::pair<std::string, stream_profile>> sensor_name_and_hid_profiles =
-        { { gyro_sensor_name,     {RS2_STREAM_GYRO,  0, 1, 1, int(odr::IMU_FPS_200), RS2_FORMAT_MOTION_XYZ32F}},
-          { gyro_sensor_name,     {RS2_STREAM_GYRO,  0, 1, 1, int(odr::IMU_FPS_400), RS2_FORMAT_MOTION_XYZ32F}}};
+        { { gyro_sensor_name,     {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO, 0, 1, 1, int(odr::IMU_FPS_200)}},
+          { gyro_sensor_name,     {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO, 0, 1, 1, int(odr::IMU_FPS_400)}}};
 
         // Translate frequency to SENSOR_PROPERTY_CURRENT_REPORT_INTERVAL.
         std::map<rs2_stream, std::map<unsigned, unsigned>> fps_and_sampling_frequency_per_rs2_stream =

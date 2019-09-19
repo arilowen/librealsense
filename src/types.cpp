@@ -2,14 +2,15 @@
 // Copyright(c) 2015 Intel Corporation. All Rights Reserved.
 
 #include "types.h"
-#include "core/streaming.h"
 
 #include <algorithm>
 #include <iomanip>
 #include <numeric>
 #include <fstream>
 #include <cmath>
+
 #include "../include/librealsense2/hpp/rs_processing.hpp"
+#include "stream.h"
 
 #define STRCASE(T, X) case RS2_##T##_##X: {\
         static const std::string s##T##_##X##_str = make_less_screamy(#X);\

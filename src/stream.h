@@ -185,9 +185,10 @@ namespace librealsense
         auto fps = static_cast<uint32_t>(sp->get_framerate());
         if (auto vid = dynamic_cast<const video_stream_profile*>(sp))
         {
-            return{ sp->get_stream_type(), sp->get_stream_index(), vid->get_width(), vid->get_height(), fps, sp->get_format() };
+            return { sp->get_format(), sp->get_stream_type(), sp->get_stream_index(), vid->get_width(), vid->get_height(), fps };
         }
-        return{ sp->get_stream_type(), sp->get_stream_index(), 0, 0, fps, sp->get_format() };
+        
+        return { sp->get_format(), sp->get_stream_type(), sp->get_stream_index(), 0, 0, fps };
     }
 
     inline std::vector<stream_profile> to_profiles(const std::vector<std::shared_ptr<stream_profile_interface>>& vec)
