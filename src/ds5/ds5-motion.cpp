@@ -210,16 +210,28 @@ namespace librealsense
         frame_callback_ptr post_process_cb = std::make_shared<internal_frame_callback<decltype(align_imu_axes)>>(align_imu_axes);
 
         smart_hid_ep->register_processing_block(
-            { {RS2_FORMAT_MOTION_XYZ32F} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
-            [=]() { return std::make_shared<acceleration_transform>(post_process_cb);
+            { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
+            [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, post_process_cb);
         });
 
         smart_hid_ep->register_processing_block(
-            { {RS2_FORMAT_MOTION_XYZ32F} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
-            []() { return std::make_shared<gyro_transform>();
+            { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
+            [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO, post_process_cb);
         });
+
+        //smart_hid_ep->register_processing_block(
+        //    { {RS2_FORMAT_MOTION_XYZ32F} },
+        //    { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
+        //    [=]() { return std::make_shared<gyro_transform>();
+        //});
+
+        //smart_hid_ep->register_processing_block(
+        //    { {RS2_FORMAT_MOTION_XYZ32F} },
+        //    { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
+        //    [=]() { return std::make_shared<acceleration_transform>();
+        //});
 
         uint16_t pid = static_cast<uint16_t>(strtoul(all_hid_infos.front().pid.data(), nullptr, 16));
 

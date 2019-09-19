@@ -1604,7 +1604,9 @@ namespace librealsense
 
     std::shared_ptr<stream_profile_interface> synthetic_sensor::correlate_target_source_profiles(std::shared_ptr<stream_profile_interface> source_profile, std::shared_ptr<stream_profile_interface> request)
     {
-        // might be one profile to many, for instance, y8i -> y8left, y8right.
+        // Correlate the desired target profile (the request) to the source profile (the one exposed by the backend device).
+        // This is needed because we duplicate the source profile into multiple target profiles in the init_stream_profiles() method.
+        
         auto target_profiles = _source_to_target_profiles_map[source_profile];
 
         // find the closest target profile to the request, if there is none, just take the first.
@@ -1615,9 +1617,12 @@ namespace librealsense
                 request->get_stream_type() == sp->get_stream_type();
         });
 
+        // Update the source profile's fields with the correlated target profile.
+        // This profile will be propagated to the generated frame received from the backend sensor.
         auto correlated_target_profile = best_match != target_profiles.end() ? *best_match : target_profiles.front();
         source_profile->set_stream_index(correlated_target_profile->get_stream_index());
         source_profile->set_unique_id(correlated_target_profile->get_unique_id());
+        source_profile->set_stream_type(correlated_target_profile->get_stream_type());
         auto vsp = As<video_stream_profile, stream_profile_interface>(source_profile);
         auto cvsp = As<video_stream_profile, stream_profile_interface>(correlated_target_profile);
         if (vsp)
@@ -1636,6 +1641,8 @@ namespace librealsense
 
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
     {
+        // Convert the requests into profiles which are supported by the sensor.
+
         std::unordered_set<std::shared_ptr<stream_profile_interface>> resolved_req_set;
         stream_profiles resolved_req;
         stream_profiles unhandled_reqs(requests);
@@ -1664,7 +1671,7 @@ namespace librealsense
                     unhandled_reqs.erase(unhandled_req);                   
             }
 
-            // retrieve source profile from cached map.
+            // Retrieve source profile from cached map.
             for (auto req : best_reqs)
             {
                 auto target = stream_info(req);
@@ -1679,7 +1686,7 @@ namespace librealsense
                     }
                 }
             }
-            // generate this processing block and append it to the cached processing blocks.
+            // Generate the best fitting processing block and append it to the cached processing blocks.
             _formats_to_processing_block[best_pb.get_source_info()] = best_pb.generate_processing_block();
         }
         
@@ -1722,7 +1729,8 @@ namespace librealsense
         // find a match between the request and the processed frame
         for (auto req : cached_req->second)
         {
-            if (req->get_stream_index() == f->get_stream()->get_stream_index())
+            if (req->get_stream_index() == f->get_stream()->get_stream_index() &&
+                req->get_stream_type() == f->get_stream()->get_stream_type())
             {
                 cached_profile = req;
                 break;
@@ -1783,7 +1791,6 @@ namespace librealsense
 
         // Invoke processing blocks callback
         auto process_cb = make_callback([&, callback, this](frame_holder f) {
-            //std::lock_guard<std::mutex> lock(_configure_lock); // TODO - Ariel - maybe can cause deadlock?
             for (auto&& pb_entry : _formats_to_processing_block)
             {
                 if (!f)
@@ -1792,11 +1799,13 @@ namespace librealsense
                 auto&& pb = pb_entry.second;
                 auto&& sources_info = pb_entry.first;
 
-                // process only if the frame format matches the processing block source format
+                // process only if the frame format matches the processing block source format and stream type.
                 auto sp = f->get_stream();
                 auto source_info_it = std::find_if(sources_info.begin(), sources_info.end(), [&f, &sp](auto info)
                 {
-                    return sp->get_format() == info.format;
+                    return info.format == sp->get_format() &&
+                        (info.stream == RS2_STREAM_ANY ||
+                        info.stream == sp->get_stream_type());
                 });
                 if (source_info_it == sources_info.end())
                     continue;
@@ -1807,8 +1816,6 @@ namespace librealsense
 
         // call the processing block on the frame
         _raw_sensor->start(process_cb);
-
-        //_raw_sensor->start(callback);
     }
 
     void synthetic_sensor::stop()
@@ -1975,7 +1982,8 @@ namespace librealsense
     bool operator<(const stream_info & lhs, const stream_info & rhs)
     {
         return (lhs.format < rhs.format ||
-            lhs.index < rhs.index && lhs.format != rhs.format);
+            lhs.index < rhs.index && lhs.format != rhs.format ||
+            lhs.stream < rhs.stream);
     }
     bool operator==(const stream_info & lhs, const stream_info & rhs)
     {
@@ -1985,5 +1993,15 @@ namespace librealsense
             rhs.height == lhs.height &&
             rhs.fps == lhs.fps &&
             rhs.index == lhs.index;
+    }
+    std::size_t stream_info::hash::operator()(const stream_info & rhs) const
+    {
+        using std::hash;
+        return ((hash<int>()(rhs.format)
+            ^ (hash<int>()(rhs.index) << 1)) >> 1)
+            ^ (hash<int>()(rhs.width) << 1)
+            ^ ((hash<int>()(rhs.height)
+                ^ (hash<int>()(rhs.fps) << 1)) >> 1)
+            ^ (hash<int>()(rhs.stream) << 1);
     }
 }

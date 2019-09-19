@@ -159,16 +159,7 @@ namespace librealsense
 
         struct hash
         {
-            std::size_t operator()(const stream_info& rhs) const
-            {
-                using std::hash;
-                return ((hash<int>()(rhs.format)
-                    ^ (hash<int>()(rhs.index) << 1)) >> 1)
-                    ^ (hash<int>()(rhs.width) << 1)
-                    ^ ((hash<int>()(rhs.height)
-                        ^ (hash<int>()(rhs.fps) << 1)) >> 1)
-                    ^ (hash<int>()(rhs.stream) << 1);
-            }
+            std::size_t operator()(const stream_info& rhs) const;
         };
 
         resolution_func stream_resolution; // Calculates the relevant resolution from the given backend resolution.
