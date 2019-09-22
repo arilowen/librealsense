@@ -1020,23 +1020,21 @@ namespace librealsense
     synthetic_sensor::~synthetic_sensor()
     {}
 
-    option & synthetic_sensor::get_option(rs2_option id) const
-    {
-        return _raw_sensor->get_option(id);
-    }
-
     void synthetic_sensor::register_option(rs2_option id, std::shared_ptr<option> option)
     {
-        sensor_base::register_option(id, option); // TODO - Ariel - choose which sensor needs the options
-        if (_raw_sensor)
-            _raw_sensor->register_option(id, option);
+        // register the option in the raw sensor.
+        _raw_sensor->register_option(id, option);
+
+        // Register a bypassed option which correlates to the raw sensor option.
+        // Each time an option will be queried, the related raw sensor's option will be addressed.
+        sensor_base::register_option(id, std::make_shared<bypass_option>(this, id));
     }
 
     void synthetic_sensor::unregister_option(rs2_option id)
     {
+        _raw_sensor->unregister_option(id);
+
         sensor_base::unregister_option(id);
-        if (_raw_sensor)
-            _raw_sensor->unregister_option(id);
     }
 
     void synthetic_sensor::sort_profiles(stream_profiles* profiles)

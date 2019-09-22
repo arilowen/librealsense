@@ -138,7 +138,6 @@ namespace librealsense
             device* device);
         ~synthetic_sensor() override;
 
-        option& get_option(rs2_option id) const override;
         void register_option(rs2_option id, std::shared_ptr<option> option);
         void unregister_option(rs2_option id);
 
@@ -160,6 +159,31 @@ namespace librealsense
         std::unordered_map<rs2_format, stream_profiles> cached_requests;
 
     private:
+        class bypass_option : public option
+        {
+        public:
+            bypass_option(synthetic_sensor* parent, rs2_option opt)
+                : _parent(parent), _opt(opt) {}
+
+            void set(float value) override {
+                if (_parent->get_raw_sensor()->supports_option(_opt))
+                    _parent->get_raw_sensor()->get_option(_opt).set(value);
+            }
+            float query() const override { return get().query(); }
+            option_range get_range() const override { return get().get_range(); }
+            bool is_enabled() const override { return get().is_enabled(); }
+            bool is_read_only() const override { return get().is_read_only(); }
+            const char* get_description() const override { return get().get_description(); }
+            const char* get_value_description(float v) const override { return get().get_value_description(v); }
+            void enable_recording(std::function<void(const option &)> record_action) override {}
+
+            option& get() { return _parent->get_raw_sensor()->get_option(_opt); }
+            const option& get() const { return _parent->get_raw_sensor()->get_option(_opt); }
+        private:
+            synthetic_sensor* _parent;
+            rs2_option _opt;
+        };
+
         stream_profiles resolve_requests(const stream_profiles& requests);
         std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_interface* f);
         void sort_profiles(stream_profiles * profiles);
