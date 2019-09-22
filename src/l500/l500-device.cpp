@@ -92,7 +92,6 @@ namespace librealsense
         register_info(RS2_CAMERA_INFO_PHYSICAL_PORT, group.uvc_devices.front().device_path);
         register_info(RS2_CAMERA_INFO_PRODUCT_ID, pid_hex_str);
         register_info(RS2_CAMERA_INFO_PRODUCT_LINE, "L500");
-
     }
 
     std::shared_ptr<synthetic_sensor> l500_device::create_depth_device(std::shared_ptr<context> ctx,
@@ -108,22 +107,17 @@ namespace librealsense
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
         auto depth_ep = std::make_shared<uvc_sensor>("Depth Sensor", std::make_shared<platform::multi_pins_uvc_device>(depth_devices),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
-
-        depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         depth_ep->register_xu(depth_xu);
-        depth_ep->register_pixel_format(pf_z16_l500);
-        depth_ep->register_pixel_format(pf_confidence_l500);
-        depth_ep->register_pixel_format(pf_y8_l500);
 
-        depth_ep->register_option(RS2_OPTION_VISUAL_PRESET,
+        auto smart_depth_ep = std::make_shared<l500_depth_sensor>(this, depth_ep);
+        smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
+        smart_depth_ep->register_option(RS2_OPTION_VISUAL_PRESET,
             std::make_shared<uvc_xu_option<int>>(
                 *depth_ep,
                 ivcam2::depth_xu,
                 ivcam2::L500_DEPTH_VISUAL_PRESET, "Preset to calibrate the camera to short or long range. 1 is long range and 2 is short range",
                 std::map<float, std::string>{ { 1, "Long range"},
                 { 2, "Short range" }}));
-
-        auto smart_depth_ep = std::make_shared<l500_depth_sensor>(this, depth_ep);
 
         smart_depth_ep->register_processing_block(
             { {RS2_FORMAT_Y8} },

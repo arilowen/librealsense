@@ -4,6 +4,7 @@
 
 namespace librealsense
 {
+    // Processes L500 rotated frames.
     class l500_transform : public stream_filter_processing_block
     {
     public:

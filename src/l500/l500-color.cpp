@@ -22,8 +22,6 @@ namespace librealsense
             this);
 
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
-        color_ep->register_pixel_format(pf_yuy2);
-        color_ep->register_pixel_format(pf_yuyv);
 
         color_ep->register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
         color_ep->register_pu(RS2_OPTION_BRIGHTNESS);
