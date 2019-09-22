@@ -146,33 +146,6 @@ namespace librealsense
         target->set_unique_id(uid);
     }
 
-    rs2_format uvc_sensor::fourcc_to_rs2_format(uint32_t fourcc_format) const
-    {
-        rs2_format f = RS2_FORMAT_ANY;
-        try {
-            f = _fourcc_to_rs2_format.at(fourcc_format);
-        }
-        catch (std::out_of_range)
-        {
-            //throw invalid_value_exception(to_string() << "rs2_format of fourcc " << fourcc_format << " not found!");
-        }
-        return f;
-    }
-
-    rs2_stream uvc_sensor::fourcc_to_rs2_stream(uint32_t fourcc_format) const
-    {
-        rs2_stream s = RS2_STREAM_ANY;
-        try {
-            s = _fourcc_to_rs2_stream.at(fourcc_format);
-        }
-        catch (std::out_of_range)
-        {
-            //throw invalid_value_exception(to_string() << "rs2_stream of fourcc " << fourcc_format << " not found!");
-        }
-
-        return s;
-    }
-
     //rs2_format sensor_base::advanced_to_backend_format(rs2_format format) const
     //{
     //    rs2_format f = RS2_FORMAT_ANY;
@@ -498,6 +471,32 @@ namespace librealsense
         _source.flush();
         _source.reset();
         _timestamp_reader->reset();
+    }
+
+    rs2_format uvc_sensor::fourcc_to_rs2_format(uint32_t fourcc_format) const
+    {
+        rs2_format f = RS2_FORMAT_ANY;
+        try {
+            f = _fourcc_to_rs2_format.at(fourcc_format);
+        }
+        catch (std::out_of_range)
+        {
+        }
+
+        return f;
+    }
+
+    rs2_stream uvc_sensor::fourcc_to_rs2_stream(uint32_t fourcc_format) const
+    {
+        rs2_stream s = RS2_STREAM_ANY;
+        try {
+            s = _fourcc_to_rs2_stream.at(fourcc_format);
+        }
+        catch (std::out_of_range)
+        {
+        }
+
+        return s;
     }
 
     void uvc_sensor::acquire_power()
@@ -1035,6 +1034,12 @@ namespace librealsense
         _raw_sensor->unregister_option(id);
 
         sensor_base::unregister_option(id);
+    }
+
+    void synthetic_sensor::register_pu(rs2_option id)
+    {
+        auto raw_uvc_sensor = As<uvc_sensor, sensor_base>(_raw_sensor);
+        register_option(id, std::make_shared<uvc_pu_option>(*raw_uvc_sensor.get(), id));
     }
 
     void synthetic_sensor::sort_profiles(stream_profiles* profiles)

@@ -140,6 +140,7 @@ namespace librealsense
 
         void register_option(rs2_option id, std::shared_ptr<option> option);
         void unregister_option(rs2_option id);
+        void register_pu(rs2_option id);
 
         virtual stream_profiles init_stream_profiles() override;
 
@@ -338,6 +339,7 @@ namespace librealsense
         std::map<uint32_t, rs2_format> _fourcc_to_rs2_format = {
             {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
             {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+            {rs_fourcc('M','J','P','G'), RS2_FORMAT_MJPEG},
             {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
             {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
             {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
@@ -349,6 +351,7 @@ namespace librealsense
             {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
             {rs_fourcc('U','Y','V','Y'), RS2_STREAM_COLOR},
             {rs_fourcc('B','Y','R','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('M','J','P','G'), RS2_STREAM_COLOR},
             {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
             {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
             {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},

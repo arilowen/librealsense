@@ -690,7 +690,7 @@ namespace librealsense
             }
 #endif
 
-            raw_depth_sensor.register_pu(RS2_OPTION_GAIN);
+            depth_sensor.register_pu(RS2_OPTION_GAIN);
             auto exposure_option = std::make_shared<uvc_xu_option<uint32_t>>(raw_depth_sensor,
                 depth_xu,
                 DS5_EXPOSURE,
@@ -766,7 +766,7 @@ namespace librealsense
                 depth_sensor->set_depth_scale(val);
             });
 
-            raw_depth_sensor.register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
+            depth_sensor->register_option(RS2_OPTION_DEPTH_UNITS, depth_scale);
         }
         else
             depth_sensor.register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",

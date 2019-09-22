@@ -56,45 +56,43 @@ namespace librealsense
         auto color_ep = std::make_shared<uvc_sensor>("RGB Sensor", backend.create_uvc_device(color_devices_info.front()),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
 
-        color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
+        auto smart_color_ep = std::make_shared<ds5_color_sensor>(this, color_ep);
+        smart_color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        color_ep->register_pu(RS2_OPTION_BRIGHTNESS);
-        color_ep->register_pu(RS2_OPTION_CONTRAST);
-        color_ep->register_pu(RS2_OPTION_SATURATION);
-        color_ep->register_pu(RS2_OPTION_GAIN);
-        color_ep->register_pu(RS2_OPTION_GAMMA);
-        color_ep->register_pu(RS2_OPTION_SHARPNESS);
+        smart_color_ep->register_pu(RS2_OPTION_BRIGHTNESS);
+        smart_color_ep->register_pu(RS2_OPTION_CONTRAST);
+        smart_color_ep->register_pu(RS2_OPTION_SATURATION);
+        smart_color_ep->register_pu(RS2_OPTION_GAIN);
+        smart_color_ep->register_pu(RS2_OPTION_GAMMA);
+        smart_color_ep->register_pu(RS2_OPTION_SHARPNESS);
 
         // Currently disabled for certain sensors
         if (!val_in_range(color_devices_info.front().pid, { ds::RS465_PID }))
         {
-            color_ep->register_pu(RS2_OPTION_HUE);
-            color_ep->register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
-            color_ep->register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
+            smart_color_ep->register_pu(RS2_OPTION_HUE);
+            smart_color_ep->register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
+            smart_color_ep->register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
         }
-
-        if (color_devices_info.front().pid == ds::RS465_PID)
-            color_ep->register_pixel_format(pf_mjpg);
 
         auto white_balance_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
         auto auto_white_balance_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE);
-        color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
-        color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
+        smart_color_ep->register_option(RS2_OPTION_WHITE_BALANCE, white_balance_option);
+        smart_color_ep->register_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE, auto_white_balance_option);
+        smart_color_ep->register_option(RS2_OPTION_WHITE_BALANCE,
             std::make_shared<auto_disabling_control>(
                 white_balance_option,
                 auto_white_balance_option));
 
         auto exposure_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_EXPOSURE);
         auto auto_exposure_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_ENABLE_AUTO_EXPOSURE);
-        color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
-        color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
-        color_ep->register_option(RS2_OPTION_EXPOSURE,
+        smart_color_ep->register_option(RS2_OPTION_EXPOSURE, exposure_option);
+        smart_color_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, auto_exposure_option);
+        smart_color_ep->register_option(RS2_OPTION_EXPOSURE,
             std::make_shared<auto_disabling_control>(
                 exposure_option,
                 auto_exposure_option));
 
-        color_ep->register_option(RS2_OPTION_POWER_LINE_FREQUENCY,
+        smart_color_ep->register_option(RS2_OPTION_POWER_LINE_FREQUENCY,
             std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_POWER_LINE_FREQUENCY,
                 std::map<float, std::string>{ { 0.f, "Disabled"},
                 { 1.f, "50Hz" },
@@ -147,11 +145,9 @@ namespace librealsense
         if (_fw_version >= firmware_version("5.10.9.0"))
         {
             roi_sensor_interface* roi_sensor;
-            if ((roi_sensor = dynamic_cast<roi_sensor_interface*>(color_ep.get())))
+            if ((roi_sensor = dynamic_cast<roi_sensor_interface*>(color_ep.get()))) // TODO - Ariel - add roi sensor support
                 roi_sensor->set_roi_method(std::make_shared<ds5_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
         }
-
-        auto smart_color_ep = std::make_shared<ds5_color_sensor>(this, color_ep);
 
         smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGB8); });
         smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGBA8); });
@@ -168,6 +164,12 @@ namespace librealsense
 
         smart_color_ep->register_processing_block({ {RS2_FORMAT_RAW16} }, { {RS2_FORMAT_RAW16, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_RAW16, RS2_FORMAT_RAW16); });
         
+        if (color_devices_info.front().pid == ds::RS465_PID)
+        {
+            smart_color_ep->register_processing_block({ {RS2_FORMAT_MJPEG} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_MJPEG, RS2_FORMAT_RGB8); });
+            smart_color_ep->register_processing_block({ {RS2_FORMAT_MJPEG} }, { {RS2_FORMAT_MJPEG, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
+        }
+
         _color_device_idx = add_sensor(smart_color_ep);
 
         return smart_color_ep;

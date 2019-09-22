@@ -20,55 +20,9 @@ namespace librealsense
         auto color_ep = std::make_shared<uvc_sensor>("RGB Sensor", ctx->get_backend().create_uvc_device(color_devices_info.front()),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)),
             this);
-
-        color_ep->register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
-        color_ep->register_pu(RS2_OPTION_BRIGHTNESS);
-        color_ep->register_pu(RS2_OPTION_CONTRAST);
-        color_ep->register_pu(RS2_OPTION_GAIN);
-        color_ep->register_pu(RS2_OPTION_GAMMA);
-        color_ep->register_pu(RS2_OPTION_HUE);
-        color_ep->register_pu(RS2_OPTION_SATURATION);
-        color_ep->register_pu(RS2_OPTION_SHARPNESS);
-        color_ep->register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
-
-        color_ep->register_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP, make_uvc_header_parser(&platform::uvc_header::timestamp));
-
-        // attributes of md_capture_timing
-        auto md_prop_offset = offsetof(metadata_raw, mode) +
-            offsetof(md_rgb_normal_mode, intel_capture_timing);
-
-        color_ep->register_metadata(RS2_FRAME_METADATA_FRAME_COUNTER, make_attribute_parser(&l500_md_capture_timing::frame_counter, md_capture_timing_attributes::frame_counter_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_SENSOR_TIMESTAMP, make_attribute_parser(&l500_md_capture_timing::sensor_timestamp, md_capture_timing_attributes::sensor_timestamp_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_ACTUAL_FPS, make_attribute_parser(&l500_md_capture_timing::exposure_time, md_capture_timing_attributes::sensor_timestamp_attribute, md_prop_offset));
-
-        // attributes of md_capture_stats
-        md_prop_offset = offsetof(metadata_raw, mode) +
-            offsetof(md_rgb_normal_mode, intel_capture_stats);
-
-        color_ep->register_metadata(RS2_FRAME_METADATA_WHITE_BALANCE, make_attribute_parser(&md_capture_stats::white_balance, md_capture_stat_attributes::white_balance_attribute, md_prop_offset));
-
-        // attributes of md_rgb_control
-        md_prop_offset = offsetof(metadata_raw, mode) +
-            offsetof(md_rgb_normal_mode, intel_rgb_control);
-
-        color_ep->register_metadata(RS2_FRAME_METADATA_GAIN_LEVEL, make_attribute_parser(&md_rgb_control::gain, md_rgb_control_attributes::gain_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE, make_attribute_parser(&md_rgb_control::manual_exp, md_rgb_control_attributes::manual_exp_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_AUTO_EXPOSURE, make_attribute_parser(&md_rgb_control::ae_mode, md_rgb_control_attributes::ae_mode_attribute, md_prop_offset,
-            [](rs2_metadata_type param) { return (param != 1); }));
-
-        color_ep->register_metadata(RS2_FRAME_METADATA_BRIGHTNESS, make_attribute_parser(&md_rgb_control::brightness, md_rgb_control_attributes::brightness_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_CONTRAST, make_attribute_parser(&md_rgb_control::contrast, md_rgb_control_attributes::contrast_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_SATURATION, make_attribute_parser(&md_rgb_control::saturation, md_rgb_control_attributes::saturation_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_SHARPNESS, make_attribute_parser(&md_rgb_control::sharpness, md_rgb_control_attributes::sharpness_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_AUTO_WHITE_BALANCE_TEMPERATURE, make_attribute_parser(&md_rgb_control::awb_temp, md_rgb_control_attributes::awb_temp_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_BACKLIGHT_COMPENSATION, make_attribute_parser(&md_rgb_control::backlight_comp, md_rgb_control_attributes::backlight_comp_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_GAMMA, make_attribute_parser(&md_rgb_control::gamma, md_rgb_control_attributes::gamma_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_HUE, make_attribute_parser(&md_rgb_control::hue, md_rgb_control_attributes::hue_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_MANUAL_WHITE_BALANCE, make_attribute_parser(&md_rgb_control::manual_wb, md_rgb_control_attributes::manual_wb_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_POWER_LINE_FREQUENCY, make_attribute_parser(&md_rgb_control::power_line_frequency, md_rgb_control_attributes::power_line_frequency_attribute, md_prop_offset));
-        color_ep->register_metadata(RS2_FRAME_METADATA_LOW_LIGHT_COMPENSATION, make_attribute_parser(&md_rgb_control::low_light_comp, md_rgb_control_attributes::low_light_comp_attribute, md_prop_offset));
-
         auto smart_color_ep = std::make_shared<l500_color_sensor>(this, color_ep, ctx);
+
+        // processing blocks
         smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGB8); });
         smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGBA8); });
         smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGR8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_BGR8); });
@@ -76,6 +30,17 @@ namespace librealsense
         smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_Y16, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_Y16); });
         smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_YUYV, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
         
+        // options
+        smart_color_ep->register_pu(RS2_OPTION_BACKLIGHT_COMPENSATION);
+        smart_color_ep->register_pu(RS2_OPTION_BRIGHTNESS);
+        smart_color_ep->register_pu(RS2_OPTION_CONTRAST);
+        smart_color_ep->register_pu(RS2_OPTION_GAIN);
+        smart_color_ep->register_pu(RS2_OPTION_GAMMA);
+        smart_color_ep->register_pu(RS2_OPTION_HUE);
+        smart_color_ep->register_pu(RS2_OPTION_SATURATION);
+        smart_color_ep->register_pu(RS2_OPTION_SHARPNESS);
+        smart_color_ep->register_pu(RS2_OPTION_AUTO_EXPOSURE_PRIORITY);
+
         smart_color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
         auto white_balance_option = std::make_shared<uvc_pu_option>(*color_ep, RS2_OPTION_WHITE_BALANCE);
@@ -102,6 +67,43 @@ namespace librealsense
                 { 1.f, "50Hz" },
                 { 2.f, "60Hz" },
                 { 3.f, "Auto" }, }));
+
+        // metadata
+        // attributes of md_capture_timing
+        auto md_prop_offset = offsetof(metadata_raw, mode) +
+            offsetof(md_rgb_normal_mode, intel_capture_timing);
+
+        color_ep->register_metadata(RS2_FRAME_METADATA_FRAME_COUNTER, make_attribute_parser(&l500_md_capture_timing::frame_counter, md_capture_timing_attributes::frame_counter_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_SENSOR_TIMESTAMP, make_attribute_parser(&l500_md_capture_timing::sensor_timestamp, md_capture_timing_attributes::sensor_timestamp_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_ACTUAL_FPS, make_attribute_parser(&l500_md_capture_timing::exposure_time, md_capture_timing_attributes::sensor_timestamp_attribute, md_prop_offset));
+
+        // attributes of md_capture_stats
+        md_prop_offset = offsetof(metadata_raw, mode) +
+            offsetof(md_rgb_normal_mode, intel_capture_stats);
+
+        color_ep->register_metadata(RS2_FRAME_METADATA_WHITE_BALANCE, make_attribute_parser(&md_capture_stats::white_balance, md_capture_stat_attributes::white_balance_attribute, md_prop_offset));
+
+        // attributes of md_rgb_control
+        md_prop_offset = offsetof(metadata_raw, mode) +
+            offsetof(md_rgb_normal_mode, intel_rgb_control);
+
+        color_ep->register_metadata(RS2_FRAME_METADATA_GAIN_LEVEL, make_attribute_parser(&md_rgb_control::gain, md_rgb_control_attributes::gain_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE, make_attribute_parser(&md_rgb_control::manual_exp, md_rgb_control_attributes::manual_exp_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_AUTO_EXPOSURE, make_attribute_parser(&md_rgb_control::ae_mode, md_rgb_control_attributes::ae_mode_attribute, md_prop_offset,
+            [](rs2_metadata_type param) { return (param != 1); }));
+        color_ep->register_metadata(RS2_FRAME_METADATA_BRIGHTNESS, make_attribute_parser(&md_rgb_control::brightness, md_rgb_control_attributes::brightness_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_CONTRAST, make_attribute_parser(&md_rgb_control::contrast, md_rgb_control_attributes::contrast_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_SATURATION, make_attribute_parser(&md_rgb_control::saturation, md_rgb_control_attributes::saturation_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_SHARPNESS, make_attribute_parser(&md_rgb_control::sharpness, md_rgb_control_attributes::sharpness_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_AUTO_WHITE_BALANCE_TEMPERATURE, make_attribute_parser(&md_rgb_control::awb_temp, md_rgb_control_attributes::awb_temp_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_BACKLIGHT_COMPENSATION, make_attribute_parser(&md_rgb_control::backlight_comp, md_rgb_control_attributes::backlight_comp_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_GAMMA, make_attribute_parser(&md_rgb_control::gamma, md_rgb_control_attributes::gamma_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_HUE, make_attribute_parser(&md_rgb_control::hue, md_rgb_control_attributes::hue_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_MANUAL_WHITE_BALANCE, make_attribute_parser(&md_rgb_control::manual_wb, md_rgb_control_attributes::manual_wb_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_POWER_LINE_FREQUENCY, make_attribute_parser(&md_rgb_control::power_line_frequency, md_rgb_control_attributes::power_line_frequency_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_LOW_LIGHT_COMPENSATION, make_attribute_parser(&md_rgb_control::low_light_comp, md_rgb_control_attributes::low_light_comp_attribute, md_prop_offset));
+        color_ep->register_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP, make_uvc_header_parser(&platform::uvc_header::timestamp));
+
         return smart_color_ep;
     }
 

@@ -40,6 +40,9 @@ rs2::frame librealsense::color_formats_converter::process_frame(const rs2::frame
     case RS2_FORMAT_RAW16:
         unpack_bayer16(planes, (const byte*)f.get_data(), vf.get_width(), vf.get_height(), vf.get_height() * vf.get_width() * _traget_bpp);
         break;
+    case RS2_FORMAT_MJPEG:
+        unpack_mjpeg(planes, (const byte*)f.get_data(), vf.get_width(), vf.get_height(), vf.get_height() * vf.get_width() * _traget_bpp);
+        break;
     }
 
     return ret;
