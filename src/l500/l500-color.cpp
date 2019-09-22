@@ -5,7 +5,7 @@
 #include "l500-private.h"
 #include "proc/identity-processing-block.h"
 #include "proc/yuy2rgb.h"
-#include "proc/yuy2-converter.h"
+#include "proc/color-formats-converter.h"
 #include <cstddef>
 
 namespace librealsense
@@ -99,11 +99,11 @@ namespace librealsense
         color_ep->register_metadata(RS2_FRAME_METADATA_LOW_LIGHT_COMPENSATION, make_attribute_parser(&md_rgb_control::low_light_comp, md_rgb_control_attributes::low_light_comp_attribute, md_prop_offset));
 
         auto smart_color_ep = std::make_shared<l500_color_sensor>(this, color_ep, ctx);
-        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_RGB8); });
-        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_RGBA8); });
-        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGR8, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_BGR8); });
-        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGRA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_BGRA8); });
-        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_Y16, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_Y16); });
+        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGB8); });
+        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGBA8); });
+        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGR8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_BGR8); });
+        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGRA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_BGRA8); });
+        smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_Y16, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_Y16); });
         smart_color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_YUYV, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
         return smart_color_ep;
     }

@@ -57,10 +57,6 @@ namespace librealsense
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
 
         color_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
-        color_ep->register_pixel_format(pf_yuyv);
-        color_ep->register_pixel_format(pf_yuy2);
-        color_ep->register_pixel_format(pf_bayer16);
-        color_ep->register_pixel_format(pf_uyvyc);
 
         color_ep->register_pu(RS2_OPTION_BRIGHTNESS);
         color_ep->register_pu(RS2_OPTION_CONTRAST);
@@ -171,8 +167,7 @@ namespace librealsense
         smart_color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_UYVY, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
 
         smart_color_ep->register_processing_block({ {RS2_FORMAT_RAW16} }, { {RS2_FORMAT_RAW16, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_RAW16, RS2_FORMAT_RAW16); });
-        //smart_color_ep->register_processing_block({ {RS2_FORMAT_RAW16} }, { {RS2_FORMAT_RAW16, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
-
+        
         _color_device_idx = add_sensor(smart_color_ep);
 
         return smart_color_ep;

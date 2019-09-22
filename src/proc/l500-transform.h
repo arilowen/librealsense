@@ -4,16 +4,18 @@
 
 namespace librealsense
 {
-    class z16_to_z16_rotated : public stream_filter_processing_block
+    class l500_transform : public stream_filter_processing_block
     {
     public:
-        z16_to_z16_rotated();
-        z16_to_z16_rotated(const char* name);
+        l500_transform(rs2_format target_format);
+        l500_transform(const char* name, rs2_format target_format);
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f);
 
     private:
         rs2::stream_profile _target_stream_profile;
         rs2::stream_profile _source_stream_profile;
-        int _traget_bpp = 2;
+        rs2_format _target_format;
+        rs2_extension _extension_type;
+        int _traget_bpp = 0;
     };
 }
