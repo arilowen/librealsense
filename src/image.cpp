@@ -1068,31 +1068,6 @@ namespace librealsense
         unpack_gyro_axes<RS2_FORMAT_MOTION_XYZ32F>(dest, source, width, height, actual_size);
     }
 
-    void unpack_yuy2_y8(byte * const d[], const byte * s, int w, int h, int actual_size)
-    {
-        unpack_yuy2<RS2_FORMAT_Y8>(d, s, w, h, actual_size);
-    }
-    void unpack_yuy2_y16(byte * const d[], const byte * s, int w, int h, int actual_size)
-    {
-        unpack_yuy2<RS2_FORMAT_Y16>(d, s, w, h, actual_size);
-    }
-    void unpack_yuy2_rgb8(byte * const d[], const byte * s, int w, int h, int actual_size)
-    {
-        unpack_yuy2<RS2_FORMAT_RGB8>(d, s, w, h, actual_size);
-    }
-    void unpack_yuy2_rgba8(byte * const d[], const byte * s, int w, int h, int actual_size)
-    {
-        unpack_yuy2<RS2_FORMAT_RGBA8>(d, s, w, h, actual_size);
-    }
-    void unpack_yuy2_bgr8(byte * const d[], const byte * s, int w, int h, int actual_size)
-    {
-        unpack_yuy2<RS2_FORMAT_BGR8>(d, s, w, h, actual_size);
-    }
-    void unpack_yuy2_bgra8(byte * const d[], const byte * s, int w, int h, int actual_size)
-    {
-        unpack_yuy2<RS2_FORMAT_BGRA8>(d, s, w, h, actual_size);
-    }
-
     void align_l500_y8_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         align_l500_image_optimized<1>(dest, source, width, height, actual_size);

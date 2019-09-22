@@ -4,7 +4,6 @@
 #include "l500-color.h"
 #include "l500-private.h"
 #include "proc/identity-processing-block.h"
-#include "proc/yuy2rgb.h"
 #include "proc/color-formats-converter.h"
 #include <cstddef>
 

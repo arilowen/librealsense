@@ -19,7 +19,6 @@ namespace librealsense
     void unpack_bayer16(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_acceleration_axes(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_gyroscope_axes(byte * const dest[], const byte * source, int width, int height, int actual_size);
-    void unpack_yuy2_rgb8(byte * const d[], const byte * s, int w, int h, int actual_size);
 
     size_t           get_image_size                 (int width, int height, rs2_format format);
     int              get_image_bpp                  (rs2_format format);

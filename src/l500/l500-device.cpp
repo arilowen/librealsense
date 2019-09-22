@@ -15,9 +15,7 @@
 #include "proc/zero-order.h"
 #include "proc/syncer-processing-block.h"
 #include "proc/identity-processing-block.h"
-#include "proc/y8-to-y8-rotated.h"
 #include "proc/l500-transform.h"
-#include "proc/confidence-to-raw8.h"
 
 namespace librealsense
 {
