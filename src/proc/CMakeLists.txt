@@ -33,6 +33,8 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/z16-to-z16-rotated.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/y16-to-y16.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/confidence-to-raw8.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/yuy2-converter.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/color-formats-converter.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/motion-transform.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/processing-blocks-factory.h"
@@ -59,5 +61,6 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/y16-to-y16.h"
 	"${CMAKE_CURRENT_LIST_DIR}/confidence-to-raw8.h"
 	"${CMAKE_CURRENT_LIST_DIR}/yuy2-converter.h"
+	"${CMAKE_CURRENT_LIST_DIR}/color-formats-converter.h"
 	"${CMAKE_CURRENT_LIST_DIR}/motion-transform.h"
 )

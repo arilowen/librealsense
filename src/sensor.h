@@ -92,8 +92,6 @@ namespace librealsense
             return {};
         }
 
-        lazy<stream_profiles> _profiles;
-
     protected:
         void raise_on_before_streaming_changes(bool streaming);
         void set_active_streams(const stream_profiles& requests);
@@ -108,9 +106,6 @@ namespace librealsense
             const unsigned long long& last_frame_number,
             std::shared_ptr<stream_profile_interface> profile);
 
-        rs2_format fourcc_to_rs2_format(uint32_t format) const;
-        rs2_stream fourcc_to_rs2_stream(uint32_t fourcc_format) const;
-
         std::vector<platform::stream_profile> _internal_config;
 
         std::atomic<bool> _is_streaming;
@@ -120,16 +115,13 @@ namespace librealsense
         on_open _on_open;
         std::shared_ptr<metadata_parser_map> _metadata_parsers = nullptr;
 
-        std::map<uint32_t, rs2_format> _fourcc_to_rs2_format;
-        std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream;
-
         std::shared_ptr<sensor_base> _sensor_owner;
         frame_source _source;
         device* _owner;
         std::vector<platform::stream_profile> _uvc_profiles;
 
     private:
-        //lazy<stream_profiles> _profiles;
+        lazy<stream_profiles> _profiles;
         stream_profiles _active_profiles;
         std::vector<native_pixel_format> _pixel_formats;
         signal<sensor_base, bool> on_before_streaming_changes;
@@ -263,8 +255,8 @@ namespace librealsense
         void start(frame_callback_ptr callback) override;
         void stop() override;
         void register_xu(platform::extension_unit xu);
-        void register_pu(rs2_option id); // TODO delete
-        void try_register_pu(rs2_option id); // TODO delete
+        void register_pu(rs2_option id);
+        void try_register_pu(rs2_option id);
 
         std::vector<platform::stream_profile> get_configuration() const { return _internal_config; }
         std::shared_ptr<platform::uvc_device> get_uvc_device() { return _device; }
@@ -288,6 +280,9 @@ namespace librealsense
         void acquire_power();
         void release_power();
         void reset_streaming();
+
+        rs2_format fourcc_to_rs2_format(uint32_t format) const;
+        rs2_stream fourcc_to_rs2_stream(uint32_t fourcc_format) const;
 
         struct power
         {
@@ -316,7 +311,26 @@ namespace librealsense
             std::weak_ptr<uvc_sensor> _owner;
         };
 
-
+        std::map<uint32_t, rs2_format> _fourcc_to_rs2_format = {
+            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
+            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+            {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
+            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
+            {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
+            {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
+            {rs_fourcc('C',' ',' ',' '), RS2_FORMAT_RAW8},
+            {rs_fourcc('B','Y','R','2'), RS2_FORMAT_RAW16}
+        };
+        std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream = {
+            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_COLOR},
+            {rs_fourcc('B','Y','R','2'), RS2_STREAM_COLOR},
+            {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
+            {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
+            {rs_fourcc('C',' ',' ',' '), RS2_STREAM_CONFIDENCE},
+        };
 
         std::shared_ptr<platform::uvc_device> _device;
         std::atomic<int> _user_count;

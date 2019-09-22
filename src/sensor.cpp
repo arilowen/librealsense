@@ -146,7 +146,7 @@ namespace librealsense
         target->set_unique_id(uid);
     }
 
-    rs2_format sensor_base::fourcc_to_rs2_format(uint32_t fourcc_format) const
+    rs2_format uvc_sensor::fourcc_to_rs2_format(uint32_t fourcc_format) const
     {
         rs2_format f = RS2_FORMAT_ANY;
         try {
@@ -159,7 +159,7 @@ namespace librealsense
         return f;
     }
 
-    rs2_stream sensor_base::fourcc_to_rs2_stream(uint32_t fourcc_format) const
+    rs2_stream uvc_sensor::fourcc_to_rs2_stream(uint32_t fourcc_format) const
     {
         rs2_stream s = RS2_STREAM_ANY;
         try {
@@ -930,24 +930,6 @@ namespace librealsense
           _timestamp_reader(std::move(timestamp_reader))
     {
         register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP,     make_additional_data_parser(&frame_additional_data::backend_timestamp));
-
-        _fourcc_to_rs2_format = {
-            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
-            {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
-            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
-            {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
-            {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
-            {rs_fourcc('C',' ',' ',' '), RS2_FORMAT_RAW8}
-        };
-
-        _fourcc_to_rs2_stream = {
-            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
-            {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
-            {rs_fourcc('C',' ',' ',' '), RS2_STREAM_CONFIDENCE},
-        };
     }
 
     iio_hid_timestamp_reader::iio_hid_timestamp_reader()
@@ -1331,7 +1313,7 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_configure_lock);
         auto resolved_req = resolve_requests(requests);
 
-        _raw_sensor->set_owner_sensor(this->shared_from_this()); // TODO - Ariel - maybe move set_owner_sensor method to sensor_base if it is common for hid and uvc
+        _raw_sensor->set_owner_sensor(this->shared_from_this());
         _raw_sensor->open(resolved_req);
     }
 
