@@ -91,12 +91,13 @@ namespace librealsense
         const ds5_motion* _owner;
     };
 
-    class ds5_fisheye_sensor : public uvc_sensor, public video_sensor_interface, public roi_sensor_base // TODO - Ariel change to synthetic sensor
+    class ds5_fisheye_sensor : public synthetic_sensor, public video_sensor_interface, public roi_sensor_base // TODO - Ariel change to synthetic sensor
     {
     public:
-        explicit ds5_fisheye_sensor(ds5_motion* owner, std::shared_ptr<platform::uvc_device> uvc_device,
-            std::unique_ptr<frame_timestamp_reader> timestamp_reader)
-            : uvc_sensor("Wide FOV Camera", uvc_device, move(timestamp_reader), owner), _owner(owner)
+        explicit ds5_fisheye_sensor(std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
+            device* device,
+            ds5_motion* owner)
+            : synthetic_sensor("Wide FOV Camera", sensor, device), _owner(owner)
         {}
 
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override
@@ -111,7 +112,7 @@ namespace librealsense
         {
             auto lock = environment::get_instance().get_extrinsics_graph().lock();
 
-            auto results = uvc_sensor::init_stream_profiles();
+            auto results = synthetic_sensor::init_stream_profiles();
             for (auto p : results)
             {
                 // Register stream types
@@ -134,6 +135,12 @@ namespace librealsense
             }
 
             return results;
+        }
+
+        std::shared_ptr<uvc_sensor> get_raw_sensor()
+        {
+            auto uvc_raw_sensor = As<uvc_sensor, sensor_base>(get_raw_sensor());
+            return uvc_raw_sensor;
         }
     private:
         const ds5_motion* _owner;
@@ -191,23 +198,57 @@ namespace librealsense
         auto smart_hid_ep = std::make_shared<ds5_hid_sensor>("Smart Motion Module", hid_ep, this, this);
 
         hid_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
-        hid_ep->register_pixel_format(pf_accel_axes);
-        hid_ep->register_pixel_format(pf_gyro_axes);
 
-
-        float3x3 imu_to_depth = _mm_calib->imu_to_depth_alignment();
-        auto align_imu_axes = [imu_to_depth](frame_interface* fr)
+        // motion correction handling
+        float3x3 imu_to_depth;
+        try {
+            imu_to_depth = _mm_calib->imu_to_depth_alignment();
+        }
+        catch (const std::exception& ex) {
+            LOG_INFO("Motion Module - no extrinsic calibration, " << ex.what());
+        }
+        auto align_imu_axes = [hid_ep, imu_to_depth, this](frame_interface* fr)
         {
-            if (fr->get_stream()->get_format() == RS2_FORMAT_MOTION_XYZ32F)
-            {
-                auto xyz = (float3*)(fr->get_frame_data());
+            if (fr->get_stream()->get_format() != RS2_FORMAT_MOTION_XYZ32F)
+                return;
 
-                // The IMU sensor orientation shall be aligned with depth sensor's coordinate system
-                *xyz = imu_to_depth * (*xyz);
+            auto xyz = (float3*)(fr->get_frame_data());
+
+            try
+            {
+                auto accel_intrinsic = *_accel_intrinsic;
+                auto gyro_intrinsic = *_gyro_intrinsic;
+
+                bool enable_motion_correction = false;
+                if (hid_ep->supports_option(RS2_OPTION_ENABLE_MOTION_CORRECTION))
+                {
+                    auto&& motion_correction_opt = hid_ep->get_option(RS2_OPTION_ENABLE_MOTION_CORRECTION);
+                    enable_motion_correction = motion_correction_opt.is_enabled();
+                }
+
+                if (enable_motion_correction)
+                {
+                    
+                    rs2_stream stream = fr->get_stream()->get_stream_type();
+                    if (stream == RS2_STREAM_ACCEL)
+                        *xyz = (accel_intrinsic.sensitivity * (*xyz)) - accel_intrinsic.bias;
+
+                    if (stream == RS2_STREAM_GYRO)
+                        *xyz = gyro_intrinsic.sensitivity * (*xyz) - gyro_intrinsic.bias;
+                }
             }
+            catch (const std::exception& ex)
+            {
+                LOG_INFO("Motion Module - no intrinsic calibration, " << ex.what());
+            }
+
+            // The IMU sensor orientation shall be aligned with depth sensor's coordinate system
+            *xyz = imu_to_depth * (*xyz);
+            
         };
         frame_callback_ptr post_process_cb = std::make_shared<internal_frame_callback<decltype(align_imu_axes)>>(align_imu_axes);
 
+        // register pre-processing
         smart_hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
@@ -219,18 +260,6 @@ namespace librealsense
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
             [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO, post_process_cb);
         });
-
-        //smart_hid_ep->register_processing_block(
-        //    { {RS2_FORMAT_MOTION_XYZ32F} },
-        //    { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
-        //    [=]() { return std::make_shared<gyro_transform>();
-        //});
-
-        //smart_hid_ep->register_processing_block(
-        //    { {RS2_FORMAT_MOTION_XYZ32F} },
-        //    { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
-        //    [=]() { return std::make_shared<acceleration_transform>();
-        //});
 
         uint16_t pid = static_cast<uint16_t>(strtoul(all_hid_infos.front().pid.data(), nullptr, 16));
 
@@ -244,48 +273,50 @@ namespace librealsense
         return smart_hid_ep;
     }
 
-    std::shared_ptr<auto_exposure_mechanism> ds5_motion::register_auto_exposure_options(uvc_sensor* uvc_ep, const platform::extension_unit* fisheye_xu)
+    std::shared_ptr<auto_exposure_mechanism> ds5_motion::register_auto_exposure_options(synthetic_sensor* ep, const platform::extension_unit* fisheye_xu)
     {
-        auto gain_option =  std::make_shared<uvc_pu_option>(*uvc_ep, RS2_OPTION_GAIN);
+        auto uvc_raw_sensor = As<uvc_sensor, sensor_base>(ep->get_raw_sensor());
+        auto gain_option =  std::make_shared<uvc_pu_option>(*uvc_raw_sensor, RS2_OPTION_GAIN);
 
-        auto exposure_option =  std::make_shared<uvc_xu_option<uint16_t>>(*uvc_ep,
+        auto exposure_option =  std::make_shared<uvc_xu_option<uint16_t>>(*uvc_raw_sensor,
                 *fisheye_xu,
                 librealsense::ds::FISHEYE_EXPOSURE, "Exposure time of Fisheye camera");
 
         auto ae_state = std::make_shared<auto_exposure_state>();
         auto auto_exposure = std::make_shared<auto_exposure_mechanism>(*gain_option, *exposure_option, *ae_state);
 
-        auto auto_exposure_option = std::make_shared<enable_auto_exposure_option>(uvc_ep,
+        // TODO - Ariel - fix auto exposure option
+        auto auto_exposure_option = std::make_shared<enable_auto_exposure_option>(ep,
                                                                                   auto_exposure,
                                                                                   ae_state,
                                                                                   option_range{0, 1, 1, 1});
 
-        uvc_ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE,auto_exposure_option);
+        ep->register_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE,auto_exposure_option);
 
-        uvc_ep->register_option(RS2_OPTION_AUTO_EXPOSURE_MODE,
+        ep->register_option(RS2_OPTION_AUTO_EXPOSURE_MODE,
                                 std::make_shared<auto_exposure_mode_option>(auto_exposure,
                                                                             ae_state,
                                                                             option_range{0, 2, 1, 0},
                                                                             std::map<float, std::string>{{0.f, "Static"},
                                                                                                          {1.f, "Anti-Flicker"},
                                                                                                          {2.f, "Hybrid"}}));
-        uvc_ep->register_option(RS2_OPTION_AUTO_EXPOSURE_CONVERGE_STEP,
+        ep->register_option(RS2_OPTION_AUTO_EXPOSURE_CONVERGE_STEP,
                                 std::make_shared<auto_exposure_step_option>(auto_exposure,
                                                                             ae_state,
                                                                             option_range{ 0.1f, 1.0f, 0.1f, ae_step_default_value }));
-        uvc_ep->register_option(RS2_OPTION_POWER_LINE_FREQUENCY,
+        ep->register_option(RS2_OPTION_POWER_LINE_FREQUENCY,
                                 std::make_shared<auto_exposure_antiflicker_rate_option>(auto_exposure,
                                                                                         ae_state,
                                                                                         option_range{50, 60, 10, 60},
                                                                                         std::map<float, std::string>{{50.f, "50Hz"},
                                                                                                                      {60.f, "60Hz"}}));
 
-        uvc_ep->register_option(RS2_OPTION_GAIN,
+        ep->register_option(RS2_OPTION_GAIN,
                                     std::make_shared<auto_disabling_control>(
                                     gain_option,
                                     auto_exposure_option));
 
-        uvc_ep->register_option(RS2_OPTION_EXPOSURE,
+        ep->register_option(RS2_OPTION_EXPOSURE,
                                     std::make_shared<auto_disabling_control>(
                                     exposure_option,
                                     auto_exposure_option));
@@ -327,44 +358,10 @@ namespace librealsense
         {
             _motion_module_device_idx = add_sensor(hid_ep);
 
-            std::function<void(rs2_stream stream, frame_interface* fr, callback_invocation_holder callback)> align_imu_axes  = nullptr;
-
-            // Perform basic IMU transformation to align orientation with Depth sensor CS.
-            try
-            {
-                float3x3 imu_to_depth = _mm_calib->imu_to_depth_alignment();
-                align_imu_axes = [imu_to_depth](rs2_stream stream, frame_interface* fr, callback_invocation_holder callback)
-                {
-                    if (fr->get_stream()->get_format() == RS2_FORMAT_MOTION_XYZ32F)
-                    {
-                        auto xyz = (float3*)(fr->get_frame_data());
-
-                        // The IMU sensor orientation shall be aligned with depth sensor's coordinate system
-                        *xyz = imu_to_depth * (*xyz);
-                    }
-                };
-            }
-            catch (const std::exception& ex){
-                LOG_INFO("Motion Module - no extrinsic calibration, " << ex.what());
-            }
-
-            try
-            {
-                hid_ep->register_option(RS2_OPTION_ENABLE_MOTION_CORRECTION,
-                    std::make_shared<enable_motion_correction>(hid_ep.get(),
-                        *_accel_intrinsic,
-                        *_gyro_intrinsic,
-                        _depth_to_imu,
-                        align_imu_axes, // The motion correction callback also includes the axes rotation routine
-                        option_range{ 0, 1, 1, 1 }));
-            }
-            catch (const std::exception& ex)
-            {
-                LOG_INFO("Motion Module - no intrinsic calibration, " << ex.what());
-
-                // transform IMU axes if supported
-                hid_ep->get_raw_sensor()->register_on_before_frame_callback(align_imu_axes);
-            }
+            hid_ep->register_option(RS2_OPTION_ENABLE_MOTION_CORRECTION,
+                std::make_shared<enable_motion_correction>(hid_ep.get(),
+                    _depth_to_imu,
+                    option_range{ 0, 1, 1, 1 }));
 
             // HID metadata attributes
             hid_ep->get_raw_sensor()->register_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP, make_hid_header_parser(&platform::hid_header::timestamp));
@@ -401,11 +398,14 @@ namespace librealsense
         auto&& backend = ctx->get_backend();
         std::unique_ptr<frame_timestamp_reader> ds5_timestamp_reader_metadata(new ds5_timestamp_reader_from_metadata(std::move(ds5_timestamp_reader_backup)));
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto fisheye_ep = std::make_shared<ds5_fisheye_sensor>(this, backend.create_uvc_device(fisheye_infos.front()),
-                                std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)));
+        auto raw_fisheye_ep = std::make_shared<uvc_sensor>("FishEye Sensor", backend.create_uvc_device(fisheye_infos.front()),
+                                std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
+        auto fisheye_ep = std::make_shared<ds5_fisheye_sensor>(raw_fisheye_ep, this, this);
 
         fisheye_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
-        fisheye_ep->register_xu(fisheye_xu); // make sure the XU is initialized everytime we power the camera
+        raw_fisheye_ep->register_xu(fisheye_xu); // make sure the XU is initialized everytime we power the camera
+
+        // TODO - Ariel - Add support for fisheye formats
         fisheye_ep->register_pixel_format(pf_raw8);
         fisheye_ep->register_pixel_format(pf_fe_raw8_unpatched_kernel); // W/O for unpatched kernel
 
@@ -417,26 +417,26 @@ namespace librealsense
         else
         {
             fisheye_ep->register_option(RS2_OPTION_GAIN,
-                                        std::make_shared<uvc_pu_option>(*fisheye_ep.get(),
+                                        std::make_shared<uvc_pu_option>(*raw_fisheye_ep.get(),
                                                                         RS2_OPTION_GAIN));
             fisheye_ep->register_option(RS2_OPTION_EXPOSURE,
-                                        std::make_shared<uvc_xu_option<uint16_t>>(*fisheye_ep.get(),
+                                        std::make_shared<uvc_xu_option<uint16_t>>(*raw_fisheye_ep.get(),
                                                                                   fisheye_xu,
                                                                                   librealsense::ds::FISHEYE_EXPOSURE,
                                                                                   "Exposure time of Fisheye camera"));
         }
 
         // Metadata registration
-        fisheye_ep->register_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP,   make_uvc_header_parser(&platform::uvc_header::timestamp));
-        fisheye_ep->register_metadata(RS2_FRAME_METADATA_AUTO_EXPOSURE,     make_additional_data_parser(&frame_additional_data::fisheye_ae_mode));
+        raw_fisheye_ep->register_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP,   make_uvc_header_parser(&platform::uvc_header::timestamp));
+        raw_fisheye_ep->register_metadata(RS2_FRAME_METADATA_AUTO_EXPOSURE,     make_additional_data_parser(&frame_additional_data::fisheye_ae_mode));
 
         // attributes of md_capture_timing
         auto md_prop_offset = offsetof(metadata_raw, mode) +
                    offsetof(md_fisheye_mode, fisheye_mode) +
                    offsetof(md_fisheye_normal_mode, intel_capture_timing);
 
-        fisheye_ep->register_metadata(RS2_FRAME_METADATA_FRAME_COUNTER,     make_attribute_parser(&md_capture_timing::frame_counter, md_capture_timing_attributes::frame_counter_attribute,md_prop_offset));
-        fisheye_ep->register_metadata(RS2_FRAME_METADATA_SENSOR_TIMESTAMP, make_rs400_sensor_ts_parser(make_uvc_header_parser(&platform::uvc_header::timestamp),
+        raw_fisheye_ep->register_metadata(RS2_FRAME_METADATA_FRAME_COUNTER,     make_attribute_parser(&md_capture_timing::frame_counter, md_capture_timing_attributes::frame_counter_attribute,md_prop_offset));
+        raw_fisheye_ep->register_metadata(RS2_FRAME_METADATA_SENSOR_TIMESTAMP, make_rs400_sensor_ts_parser(make_uvc_header_parser(&platform::uvc_header::timestamp),
                 make_attribute_parser(&md_capture_timing::sensor_timestamp, md_capture_timing_attributes::sensor_timestamp_attribute, md_prop_offset)));
 
         // attributes of md_capture_stats
@@ -449,19 +449,19 @@ namespace librealsense
                 offsetof(md_fisheye_mode, fisheye_mode) +
                 offsetof(md_fisheye_normal_mode, intel_configuration);
 
-        fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_HW_TYPE,   make_attribute_parser(&md_configuration::hw_type,    md_configuration_attributes::hw_type_attribute, md_prop_offset));
-        fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_SKU_ID,    make_attribute_parser(&md_configuration::sku_id,     md_configuration_attributes::sku_id_attribute, md_prop_offset));
-        fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_FORMAT,    make_attribute_parser(&md_configuration::format,     md_configuration_attributes::format_attribute, md_prop_offset));
-        fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_WIDTH,     make_attribute_parser(&md_configuration::width,      md_configuration_attributes::width_attribute, md_prop_offset));
-        fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_HEIGHT,    make_attribute_parser(&md_configuration::height,     md_configuration_attributes::height_attribute, md_prop_offset));
+        raw_fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_HW_TYPE,   make_attribute_parser(&md_configuration::hw_type,    md_configuration_attributes::hw_type_attribute, md_prop_offset));
+        raw_fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_SKU_ID,    make_attribute_parser(&md_configuration::sku_id,     md_configuration_attributes::sku_id_attribute, md_prop_offset));
+        raw_fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_FORMAT,    make_attribute_parser(&md_configuration::format,     md_configuration_attributes::format_attribute, md_prop_offset));
+        raw_fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_WIDTH,     make_attribute_parser(&md_configuration::width,      md_configuration_attributes::width_attribute, md_prop_offset));
+        raw_fisheye_ep->register_metadata((rs2_frame_metadata_value)RS2_FRAME_METADATA_HEIGHT,    make_attribute_parser(&md_configuration::height,     md_configuration_attributes::height_attribute, md_prop_offset));
 
         // attributes of md_fisheye_control
         md_prop_offset = offsetof(metadata_raw, mode) +
                 offsetof(md_fisheye_mode, fisheye_mode) +
                 offsetof(md_fisheye_normal_mode, intel_fisheye_control);
 
-        fisheye_ep->register_metadata(RS2_FRAME_METADATA_GAIN_LEVEL,        make_attribute_parser(&md_fisheye_control::manual_gain, md_depth_control_attributes::gain_attribute, md_prop_offset));
-        fisheye_ep->register_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE,   make_attribute_parser(&md_fisheye_control::manual_exposure, md_depth_control_attributes::exposure_attribute, md_prop_offset));
+        raw_fisheye_ep->register_metadata(RS2_FRAME_METADATA_GAIN_LEVEL,        make_attribute_parser(&md_fisheye_control::manual_gain, md_depth_control_attributes::gain_attribute, md_prop_offset));
+        raw_fisheye_ep->register_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE,   make_attribute_parser(&md_fisheye_control::manual_exposure, md_depth_control_attributes::exposure_attribute, md_prop_offset));
 
         // Add fisheye endpoint
         _fisheye_device_idx = add_sensor(fisheye_ep);

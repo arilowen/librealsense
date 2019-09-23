@@ -27,7 +27,6 @@ namespace librealsense
     class device;
     class option;
 
-    typedef std::function<void(rs2_stream, frame_interface*, callback_invocation_holder)> on_before_frame_callback;
     typedef std::function<void(std::vector<platform::stream_profile>)> on_open;
 
     struct frame_timestamp_reader
@@ -73,11 +72,6 @@ namespace librealsense
             _on_open = callback;
         }
 
-        void register_on_before_frame_callback(on_before_frame_callback callback)
-        {
-            _on_before_frame_callback = callback;
-        }
-
         device_interface& get_device() override;
 
         void register_pixel_format(native_pixel_format pf);
@@ -111,7 +105,6 @@ namespace librealsense
         std::atomic<bool> _is_streaming;
         std::atomic<bool> _is_opened;
         std::shared_ptr<notifications_processor> _notifications_processor;
-        on_before_frame_callback _on_before_frame_callback;
         on_open _on_open;
         std::shared_ptr<metadata_parser_map> _metadata_parsers = nullptr;
 
