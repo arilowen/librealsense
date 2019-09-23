@@ -181,12 +181,13 @@ namespace librealsense
         stream_profiles resolve_requests(const stream_profiles& requests);
         std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_interface* f);
         void sort_profiles(stream_profiles * profiles);
-        std::pair<processing_block_factory, stream_profiles> find_requests_best_match(stream_profiles sp);
+        std::pair<processing_block_factory, stream_profiles> find_requests_best_pb_match(stream_profiles sp);
         std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(stream_profiles requests);
         std::shared_ptr<stream_profile_interface> correlate_target_source_profiles(std::shared_ptr<stream_profile_interface> source_profile, std::shared_ptr<stream_profile_interface> request);
         bool is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, stream_profiles profiles);
+        std::shared_ptr<stream_profile_interface> clone_profile(std::shared_ptr<stream_profile_interface> profile);
 
-        std::mutex _configure_lock;
+        std::mutex _synthetic_configure_lock;
 
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<processing_block_factory> _pb_factories;

@@ -1058,7 +1058,7 @@ namespace librealsense
         });
     }
 
-    std::shared_ptr<stream_profile_interface> clone_profile(std::shared_ptr<stream_profile_interface> profile)
+    std::shared_ptr<stream_profile_interface> synthetic_sensor::clone_profile(std::shared_ptr<stream_profile_interface> profile)
     {
         auto cloned = profile->clone();
 
@@ -1078,6 +1078,8 @@ namespace librealsense
 
     bool synthetic_sensor::is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, stream_profiles profiles)
     {
+        // Check if the given profile (duplicate parameter) is already found in profiles list.
+
         auto dup_iter = std::find_if(profiles.begin(), profiles.end(), [&duplicate](std::shared_ptr<stream_profile_interface> spi)
         {
             auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
@@ -1090,7 +1092,6 @@ namespace librealsense
 
             return (res &&
                 spi->get_format() == duplicate->get_format() &&
-                //spi->get_unique_id() == p->get_unique_id() &&
                 spi->get_stream_index() == duplicate->get_stream_index() &&
                 spi->get_stream_type() == duplicate->get_stream_type() &&
                 spi->get_framerate() == duplicate->get_framerate());
@@ -1128,7 +1129,7 @@ namespace librealsense
                 // add profiles that are supported by the device
                 for (auto& profile : profiles)
                 {
-                    auto vsp = std::dynamic_pointer_cast<video_stream_profile>(profile);
+                    
                     if (profile->get_format() == source.format)
                     {
                         for (auto&& target : targets)
@@ -1143,7 +1144,7 @@ namespace librealsense
                             auto cloned_vsp = As<video_stream_profile, stream_profile_interface>(cloned_profile);
                             if (cloned_vsp)
                             {
-                                auto res = target.stream_resolution({ vsp->get_width(), vsp->get_height() });
+                                auto res = target.stream_resolution({ cloned_vsp->get_width(), cloned_vsp->get_height() });
                                 target.height = res.height;
                                 target.width = res.width;
                                 cloned_vsp->set_dims(target.width, target.height);
@@ -1175,10 +1176,13 @@ namespace librealsense
         return result_profiles;
     }
 
-    std::pair<processing_block_factory, stream_profiles> synthetic_sensor::find_requests_best_match(stream_profiles requests)
-    {        
-        // for video stream, the best fitting processing block is defined as the processing block which its sources
+    std::pair<processing_block_factory, stream_profiles> synthetic_sensor::find_requests_best_pb_match(stream_profiles requests)
+    {      
+        // Find and retrieve best fitting processing block to the given requests, and the requests which were the best fit.
+
+        // For video stream, the best fitting processing block is defined as the processing block which its sources
         // covers the maximum amount of requests.
+
         stream_profiles best_match_requests;
         processing_block_factory best_match_processing_block_factory;
 
@@ -1205,6 +1209,8 @@ namespace librealsense
 
     std::unordered_set<std::shared_ptr<stream_profile_interface>> synthetic_sensor::map_requests_to_source_profiles(stream_profiles requests)
     {
+        // Find the source profiles matching the requests which were cached in the profiles init.
+
         std::unordered_set<std::shared_ptr<stream_profile_interface>> mapped_source_profiles;
         for (auto req : requests)
         {
@@ -1273,7 +1279,7 @@ namespace librealsense
         while (!unhandled_reqs.empty())
         {
             // find the best fitting processing block - the one which resolves the most requests.
-            auto best_match = find_requests_best_match(unhandled_reqs);
+            auto best_match = find_requests_best_pb_match(unhandled_reqs);
             auto best_pb = best_match.first;
             auto best_reqs = best_match.second;
             
@@ -1312,7 +1318,7 @@ namespace librealsense
 
     void synthetic_sensor::open(const stream_profiles& requests)
     {
-        std::lock_guard<std::mutex> lock(_configure_lock);
+        std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
         auto resolved_req = resolve_requests(requests);
 
         _raw_sensor->set_owner_sensor(this->shared_from_this());
@@ -1321,7 +1327,7 @@ namespace librealsense
 
     void synthetic_sensor::close()
     {
-        std::lock_guard<std::mutex> lock(_configure_lock);
+        std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
         _raw_sensor->close();
         _formats_to_processing_block.erase(begin(_formats_to_processing_block), end(_formats_to_processing_block));
     }
@@ -1358,7 +1364,7 @@ namespace librealsense
 
     void synthetic_sensor::start(frame_callback_ptr callback)
     {
-        std::lock_guard<std::mutex> lock(_configure_lock);
+        std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
 
         // After processing callback
         auto output_cb = make_callback([&, callback](frame_holder f) {
@@ -1436,7 +1442,7 @@ namespace librealsense
 
     void synthetic_sensor::stop()
     {
-        std::lock_guard<std::mutex> lock(_configure_lock);
+        std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
         _raw_sensor->stop();
         cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }
