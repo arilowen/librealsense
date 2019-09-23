@@ -80,7 +80,7 @@ namespace librealsense
         float _baseline;
     };
 
-    class l500_depth_sensor : public synthetic_sensor, public video_sensor_interface, public depth_sensor, public virtual l500_depth_sensor_interface
+    class l500_depth_sensor : public synthetic_sensor, public video_sensor_interface, public virtual depth_sensor, public virtual l500_depth_sensor_interface
     {
     public:
         explicit l500_depth_sensor(l500_device* owner, std::shared_ptr<uvc_sensor> uvc_sensor)
