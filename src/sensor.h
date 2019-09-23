@@ -127,7 +127,7 @@ namespace librealsense
     {
     public:
         explicit synthetic_sensor(std::string name,
-            std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
+            std::shared_ptr<sensor_base> sensor,
             device* device);
         ~synthetic_sensor() override;
 

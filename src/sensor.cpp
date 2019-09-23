@@ -1411,7 +1411,7 @@ namespace librealsense
             {
                 if (!f)
                     return;
-                // TODO - Ariel - handle multiple requests
+
                 auto&& pb = pb_entry.second;
                 auto&& sources_info = pb_entry.first;
 

@@ -145,7 +145,7 @@ namespace librealsense
         if (_fw_version >= firmware_version("5.10.9.0"))
         {
             roi_sensor_interface* roi_sensor;
-            if ((roi_sensor = dynamic_cast<roi_sensor_interface*>(color_ep.get()))) // TODO - Ariel - add roi sensor support
+            if ((roi_sensor = dynamic_cast<roi_sensor_interface*>(color_ep.get()))) // TODO - Ariel - check if broken
                 roi_sensor->set_roi_method(std::make_shared<ds5_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
         }
 

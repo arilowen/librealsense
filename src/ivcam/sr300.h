@@ -450,7 +450,7 @@ namespace librealsense
             force_hardware_reset();
         }
 
-        uvc_sensor& get_depth_sensor() { return dynamic_cast<uvc_sensor&>(get_sensor(_depth_device_idx)); } // TODO - Ariel - fix this to use synthethic sensor
+        uvc_sensor& get_depth_sensor() { return dynamic_cast<uvc_sensor&>(get_sensor(_depth_device_idx)); } // TODO - Ariel - add synthetic sensor support
 
 
         sr300_camera(std::shared_ptr<context> ctx,

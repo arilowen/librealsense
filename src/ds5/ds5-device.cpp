@@ -540,10 +540,6 @@ namespace librealsense
 
         depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
 
-        depth_ep->register_pixel_format(pf_z16); // Depth
-        depth_ep->register_pixel_format(pf_y8); // Left Only - Luminance
-        depth_ep->register_pixel_format(pf_yuyv); // Left Only
-
         auto smart_depth_ep = std::make_shared<ds5_depth_sensor>(this, depth_ep);
         smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 

@@ -50,7 +50,7 @@ namespace librealsense
     {
     public:
         explicit ds5_hid_sensor(std::string name,
-            std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
+            std::shared_ptr<sensor_base> sensor,
             device* device,
             ds5_motion* owner)
             : synthetic_sensor(name, sensor, device), _owner(owner)
@@ -94,7 +94,7 @@ namespace librealsense
     class ds5_fisheye_sensor : public synthetic_sensor, public video_sensor_interface, public roi_sensor_base // TODO - Ariel change to synthetic sensor
     {
     public:
-        explicit ds5_fisheye_sensor(std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
+        explicit ds5_fisheye_sensor(std::shared_ptr<sensor_base> sensor,
             device* device,
             ds5_motion* owner)
             : synthetic_sensor("Wide FOV Camera", sensor, device), _owner(owner)
@@ -267,7 +267,6 @@ namespace librealsense
         {
             hid_ep->register_option(RS2_OPTION_MOTION_MODULE_TEMPERATURE,
                                     std::make_shared<motion_module_temperature_option>(*hid_ep));
-            hid_ep->register_pixel_format(pf_gpio_timestamp);
         }
 
         return smart_hid_ep;
@@ -285,7 +284,6 @@ namespace librealsense
         auto ae_state = std::make_shared<auto_exposure_state>();
         auto auto_exposure = std::make_shared<auto_exposure_mechanism>(*gain_option, *exposure_option, *ae_state);
 
-        // TODO - Ariel - fix auto exposure option
         auto auto_exposure_option = std::make_shared<enable_auto_exposure_option>(ep,
                                                                                   auto_exposure,
                                                                                   ae_state,

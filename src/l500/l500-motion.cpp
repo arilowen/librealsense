@@ -55,7 +55,7 @@ namespace librealsense
     {
     public:
         explicit l500_hid_sensor(std::string name,
-            std::shared_ptr<sensor_base> sensor, // TODO - Ariel change to unique_ptr
+            std::shared_ptr<sensor_base> sensor,
             device* device,
             l500_motion* owner)
             : synthetic_sensor(name, sensor, device), _owner(owner)
