@@ -195,7 +195,7 @@ namespace librealsense
             sensor_name_and_hid_profiles,
             this);
 
-        auto smart_hid_ep = std::make_shared<ds5_hid_sensor>("Smart Motion Module", hid_ep, this, this);
+        auto smart_hid_ep = std::make_shared<ds5_hid_sensor>("Motion Module", hid_ep, this, this);
 
         hid_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 

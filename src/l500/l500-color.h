@@ -44,7 +44,7 @@ namespace librealsense
             explicit l500_color_sensor(l500_color* owner,
                 std::shared_ptr<uvc_sensor> uvc_sensor,
                 std::shared_ptr<context> ctx)
-                : synthetic_sensor("Smart RGB Sensor", uvc_sensor, owner), _owner(owner)
+                : synthetic_sensor("RGB Sensor", uvc_sensor, owner), _owner(owner)
             {}
 
             rs2_intrinsics get_intrinsics(const stream_profile& profile) const override

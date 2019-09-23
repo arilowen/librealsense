@@ -115,7 +115,7 @@ namespace librealsense
             l500_sensor_name_and_hid_profiles,
             this);
 
-        auto smart_hid_ep = std::make_shared<l500_hid_sensor>("Smart Motion Module", hid_ep, this, this);
+        auto smart_hid_ep = std::make_shared<l500_hid_sensor>("Motion Module", hid_ep, this, this);
         smart_hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },

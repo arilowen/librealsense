@@ -645,7 +645,7 @@ namespace librealsense
         std::map<rs2_stream, std::map<unsigned, unsigned>> fps_and_sampling_frequency_per_rs2_stream,
         std::vector<std::pair<std::string, stream_profile>> sensor_name_and_hid_profiles,
         device* dev)
-    : sensor_base("Motion Module", dev, (recommended_proccesing_blocks_interface*)this), _sensor_name_and_hid_profiles(sensor_name_and_hid_profiles),
+    : sensor_base("Raw Motion Module", dev, (recommended_proccesing_blocks_interface*)this), _sensor_name_and_hid_profiles(sensor_name_and_hid_profiles),
       _fps_and_sampling_frequency_per_rs2_stream(fps_and_sampling_frequency_per_rs2_stream),
       _hid_device(hid_device),
       _is_configured_stream(RS2_STREAM_COUNT),

@@ -84,7 +84,7 @@ namespace librealsense
     {
     public:
         explicit l500_depth_sensor(l500_device* owner, std::shared_ptr<uvc_sensor> uvc_sensor)
-            : synthetic_sensor("Smart Depth Sensor", uvc_sensor, owner), _owner(owner), _depth_invalidation_enabled(false)
+            : synthetic_sensor("Depth Sensor", uvc_sensor, owner), _owner(owner), _depth_invalidation_enabled(false)
         {
             register_option(RS2_OPTION_DEPTH_UNITS, std::make_shared<const_value_option>("Number of meters represented by a single depth unit",
                 lazy<float>([&]() {
