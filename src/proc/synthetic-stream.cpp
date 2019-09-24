@@ -346,15 +346,13 @@ namespace librealsense
 
     frame_interface* synthetic_source::allocate_motion_frame(std::shared_ptr<stream_profile_interface> stream,
         frame_interface* original,
-        int bpp,
         int width,
         int height,
-        int stride,
         rs2_extension frame_type)
     {
         auto of = dynamic_cast<frame*>(original);
         frame_additional_data data = of->additional_data;
-        auto res = _actual_source.alloc_frame(frame_type, stride * height, data, true);
+        auto res = _actual_source.alloc_frame(frame_type, width * height, data, true);
         if (!res) throw wrong_api_call_sequence_exception("Out of frame resources!");
         auto mf = dynamic_cast<motion_frame*>(res);
         mf->metadata_parsers = of->metadata_parsers;

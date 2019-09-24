@@ -15,14 +15,13 @@ namespace librealsense
           _depth_sensor(depth_sensor),
           _color_sensor(nullptr)
     {
-        auto& raw_sensor = dynamic_cast<uvc_sensor&>(*(_depth_sensor.get_raw_sensor()));
         _enabled = [this]() {
             auto results = send_receive(encode_command(ds::fw_cmd::UAMG));
             assert_no_error(ds::fw_cmd::UAMG, results);
             return results[4] > 0;
         };
         _preset_opt = std::make_shared<advanced_mode_preset_option>(*this,
-            raw_sensor,
+            _depth_sensor,
             option_range{ 0,
             RS2_RS400_VISUAL_PRESET_COUNT - 1,
             1,
@@ -242,8 +241,7 @@ namespace librealsense
 
     bool ds5_advanced_mode_base::supports_option(const synthetic_sensor& sensor, rs2_option opt) const
     {
-        uvc_sensor* raw_uvc_sensor = dynamic_cast<uvc_sensor*>(sensor.get_raw_sensor().get());
-        return raw_uvc_sensor->supports_option(opt);
+        return sensor.supports_option(opt);
     }
 
     void ds5_advanced_mode_base::get_laser_power(laser_power_control* ptr) const
@@ -542,17 +540,14 @@ namespace librealsense
 
     void ds5_advanced_mode_base::set_depth_gain(const gain_control& val)
     {
-        uvc_sensor* raw_sensor = dynamic_cast<uvc_sensor*>((*_color_sensor)->get_raw_sensor().get());
         if (val.was_set)
-            raw_sensor->get_option(RS2_OPTION_GAIN).set(val.gain);
+            _depth_sensor.get_option(RS2_OPTION_GAIN).set(val.gain);
     }
 
     void ds5_advanced_mode_base::set_depth_auto_white_balance(const auto_white_balance_control& val)
     {
-        uvc_sensor* raw_sensor = dynamic_cast<uvc_sensor*>(_depth_sensor.get_raw_sensor().get());
-
         if (val.was_set)
-            raw_sensor->get_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE).set(float(val.auto_white_balance));
+            _depth_sensor.get_option(RS2_OPTION_ENABLE_AUTO_WHITE_BALANCE).set(float(val.auto_white_balance));
     }
 
     void ds5_advanced_mode_base::set_color_exposure(const exposure_control& val)
@@ -858,7 +853,7 @@ namespace librealsense
     }
 
     advanced_mode_preset_option::advanced_mode_preset_option(ds5_advanced_mode_base& advanced,
-        uvc_sensor& ep, const option_range& opt_range)
+        synthetic_sensor& ep, const option_range& opt_range)
         : option_base(opt_range),
         _ep(ep),
         _advanced(advanced),
@@ -866,8 +861,9 @@ namespace librealsense
     {
         _ep.register_on_open([this](std::vector<platform::stream_profile> configurations) {
             std::lock_guard<std::mutex> lock(_mtx);
+            auto uvc_sen = As<uvc_sensor, sensor_base>(_ep.get_raw_sensor());
             if (_last_preset != RS2_RS400_VISUAL_PRESET_CUSTOM)
-                _advanced.apply_preset(configurations, _last_preset, get_device_pid(_ep), get_firmware_version(_ep));
+                _advanced.apply_preset(configurations, _last_preset, get_device_pid(*uvc_sen), get_firmware_version(*uvc_sen));
         });
     }
 
@@ -892,10 +888,9 @@ namespace librealsense
             return;
         }
 
-        auto synthetic_sensor = dynamic_cast<librealsense::synthetic_sensor*>(&_ep);
-        std::shared_ptr<uvc_sensor> uvc_sen = std::dynamic_pointer_cast<uvc_sensor>(synthetic_sensor->get_raw_sensor());
+        auto uvc_sen = As<uvc_sensor, sensor_base>(_ep.get_raw_sensor());
         auto configurations = uvc_sen->get_configuration();
-        _advanced.apply_preset(configurations, preset, get_device_pid(_ep), get_firmware_version(_ep));
+        _advanced.apply_preset(configurations, preset, get_device_pid(*uvc_sen), get_firmware_version(*uvc_sen));
         _last_preset = preset;
         _recording_function(*this);
     }

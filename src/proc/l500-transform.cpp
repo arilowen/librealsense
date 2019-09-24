@@ -61,11 +61,11 @@ namespace librealsense
 
         if (_target_format == RS2_FORMAT_Z16)
         {
-            align_l500_z16_optimized(planes, (const byte*)f.get_data(), vf.get_height(), vf.get_width(), vf.get_height() * vf.get_width() * _traget_bpp);
+            unpack_l500_z16_optimized(planes, (const byte*)f.get_data(), vf.get_height(), vf.get_width(), vf.get_height() * vf.get_width() * _traget_bpp);
         }
         else if (_target_format == RS2_FORMAT_Y8)
         {
-            align_l500_y8_optimized(planes, (const byte*)f.get_data(), vf.get_height(), vf.get_width(), vf.get_height() * vf.get_width() * _traget_bpp);
+            unpack_l500_y8_optimized(planes, (const byte*)f.get_data(), vf.get_height(), vf.get_width(), vf.get_height() * vf.get_width() * _traget_bpp);
         }
         else if (_target_format == RS2_FORMAT_RAW8)
         {

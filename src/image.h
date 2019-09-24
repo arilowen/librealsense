@@ -12,8 +12,8 @@ namespace librealsense
     void unpack_y8_y8_from_y8i(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_y16_from_y16_10(byte * const d[], const byte * s, int width, int height, int actual_size);
     void unpack_confidence(byte * const dest[], const byte * source, int width, int height, int actual_size);
-    void align_l500_z16_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
-    void align_l500_y8_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
+    void unpack_l500_z16_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
+    void unpack_l500_y8_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_yuy2_to(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size);
     void unpack_uyvyc_to(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size);
     void unpack_bayer16(byte * const dest[], const byte * source, int width, int height, int actual_size);

@@ -68,29 +68,17 @@ namespace librealsense
 
     stream_profiles processing_block_factory::find_satisfied_requests(stream_profiles requests)
     {
-        // Return all requests which satisfies the processing block.
-        // a processing block is satisfied, if ALL of its sources found a match with a request.
+        // Return all requests which find a match with a target in this processing block factory.
 
         stream_profiles satisfied_req;
         auto tgts = _target_info;
         for (auto&& req : requests)
         {
-            // for motion profile, request is satisfied if it has the same format and stream type.
-            if (Is<motion_stream_profile, stream_profile_interface>(req))
-            {
-                if (std::find_if(begin(tgts), end(tgts), [&req](auto tgt) {
-                    return req->get_format() == tgt.format &&
-                        req->get_stream_type() == tgt.stream;
-                }) != end(tgts))
-                    satisfied_req.push_back(req);
-            }
-            else
-            {
-                if (std::find_if(begin(tgts), end(tgts), [&req](auto tgt) {
-                    return req->get_format() == tgt.format;
-                }) != end(tgts))
-                    satisfied_req.push_back(req);
-            }
+            if (std::find_if(begin(tgts), end(tgts), [&req](auto tgt) {
+                return req->get_format() == tgt.format &&
+                    req->get_stream_type() == tgt.stream;
+            }) != end(tgts))
+                satisfied_req.push_back(req);
         }
         return satisfied_req;
     }

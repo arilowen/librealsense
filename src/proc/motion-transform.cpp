@@ -37,8 +37,8 @@ namespace librealsense
 
         int width = f.get_data_size();
         int height = 1;
-        rs2::frame ret = source.allocate_motion_frame(_target_stream_profile, f, _traget_bpp,
-            width, height, width * _traget_bpp, RS2_EXTENSION_MOTION_FRAME);
+        rs2::frame ret = source.allocate_motion_frame(_target_stream_profile, f,
+            width, height, RS2_EXTENSION_MOTION_FRAME);
 
         byte* planes[1];
         planes[0] = (byte*)ret.get_data();

@@ -343,9 +343,14 @@ namespace librealsense
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
-        auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
         if(has_metadata_ts(frame))
         {
+            auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+            if (!f)
+            {
+                LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+                return 0;
+            }
             auto md = (librealsense::metadata_raw*)(f->additional_data.metadata_blob.data());
             return (double)(ts_wrap.calc(md->header.timestamp))*TIMESTAMP_10NSEC_TO_MSEC;
         }
@@ -353,8 +358,14 @@ namespace librealsense
         {
             if (!one_time_note)
             {
+                uint32_t fcc;
+                auto sp = frame->get_stream();
+                auto bp = As<stream_profile_base, stream_profile_interface>(sp);
+                if (bp)
+                    fcc = bp->get_backend_profile().format;
+
                 LOG_WARNING("UVC metadata payloads are not available for stream "
-                    //<< std::hex << mode.pf->fourcc << std::dec << (mode.profile.format)
+                    << std::hex << fcc << std::dec << sp->get_format()
                     << ". Please refer to installation chapter for details.");
                 one_time_note = true;
             }
@@ -366,9 +377,14 @@ namespace librealsense
     {
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
-        auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
         if (has_metadata_fc(frame))
         {
+            auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+            if (!f)
+            {
+                LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+                return 0;
+            }
             auto md = (librealsense::metadata_raw*)(f->additional_data.metadata_blob.data());
             return md->mode.sr300_rgb_mode.frame_counter; // The attribute offset is identical for all sr300-supported streams
         }

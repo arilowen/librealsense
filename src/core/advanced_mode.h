@@ -9,7 +9,6 @@
 #define RS400_ADVANCED_MODE_HPP
 #include "ds5/advanced_mode/presets.h"
 #include "../../include/librealsense2/h/rs_advanced_mode_command.h"
-#include "ds5/ds5-device.h"
 #undef RS400_ADVANCED_MODE_HPP
 
 
@@ -259,7 +258,7 @@ namespace librealsense
     class advanced_mode_preset_option : public option_base
     {
     public:
-        advanced_mode_preset_option(ds5_advanced_mode_base& advanced, uvc_sensor& ep,
+        advanced_mode_preset_option(ds5_advanced_mode_base& advanced, synthetic_sensor& ep,
                                     const option_range& opt_range);
 
         static rs2_rs400_visual_preset to_preset(float x);
@@ -274,7 +273,7 @@ namespace librealsense
         firmware_version get_firmware_version(const uvc_sensor& sensor) const;
 
         std::mutex _mtx;
-        uvc_sensor& _ep;
+        synthetic_sensor& _ep;
         ds5_advanced_mode_base& _advanced;
         rs2_rs400_visual_preset _last_preset;
     };

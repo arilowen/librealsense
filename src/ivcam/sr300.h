@@ -56,6 +56,11 @@ namespace librealsense
 
             // Timestamps are encoded within the first 32 bits of the image and provided in 10nsec units
             auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+            if (!f)
+            {
+                LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+                return 0;
+            }
             uint32_t rolling_timestamp = *reinterpret_cast<const uint32_t *>(f->get_frame_data());
             if (!started)
             {
@@ -80,7 +85,11 @@ namespace librealsense
         rs2_timestamp_domain get_frame_timestamp_domain(std::shared_ptr<frame_interface> frame) const override
         {
             auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
-
+            if (!f)
+            {
+                LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+                return RS2_TIMESTAMP_DOMAIN_COUNT;
+            }
             if(f->additional_data.metadata_size >= platform::uvc_header_size )
                 return RS2_TIMESTAMP_DOMAIN_HARDWARE_CLOCK;
             else
@@ -100,6 +109,11 @@ namespace librealsense
         bool has_metadata_ts(std::shared_ptr<frame_interface> frame) const
         {
             auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+            if (!f)
+            {
+                LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+                return false;
+            }
             // Metadata support for a specific stream is immutable
             const bool has_md_ts = [&]{ std::lock_guard<std::recursive_mutex> lock(_mtx);
                 return ((f->additional_data.metadata_blob.data() != nullptr) && (f->additional_data.metadata_size >= platform::uvc_header_size) && ((byte*)f->additional_data.metadata_blob.data())[0] >= platform::uvc_header_size);
@@ -111,6 +125,11 @@ namespace librealsense
         bool has_metadata_fc(std::shared_ptr<frame_interface> frame) const
         {
             auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+            if (!f)
+            {
+                LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+                return false;
+            }
             // Metadata support for a specific stream is immutable
             const bool has_md_frame_counter = [&] { std::lock_guard<std::recursive_mutex> lock(_mtx);
                 return ((f->additional_data.metadata_blob.data() != nullptr) && (f->additional_data.metadata_size > platform::uvc_header_size) && ((byte*)f->additional_data.metadata_blob.data())[0] > platform::uvc_header_size);

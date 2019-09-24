@@ -26,6 +26,11 @@ namespace librealsense
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
         auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (!f)
+        {
+            LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+            return false;
+        }
         auto md = f->additional_data.metadata_blob;
         auto mds = f->additional_data.metadata_size;
 
@@ -49,6 +54,11 @@ namespace librealsense
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
         auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (!f)
+        {
+            LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+            return 0;
+        }
         auto pin_index = 0;
 
         if (frame->get_stream()->get_format() == RS2_FORMAT_Z16)
@@ -80,6 +90,11 @@ namespace librealsense
         std::lock_guard<std::recursive_mutex> lock(_mtx);
 
         auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (!f)
+        {
+            LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+            return 0;
+        }
         auto pin_index = 0;
 
         if (frame->get_stream()->get_format() == RS2_FORMAT_Z16)
@@ -172,6 +187,11 @@ namespace librealsense
         std::lock_guard<std::recursive_mutex> lock(_mtx);
         static const uint8_t timestamp_offset = 17;
         auto f = std::dynamic_pointer_cast<librealsense::frame>(frame);
+        if (!f)
+        {
+            LOG_ERROR("Frame is not valid. Failed to downcast to librealsense::frame.");
+            return 0;
+        }
 
         // The timewstamp shall be trimmed back to 32 bit to allow HID/UVC intra-stream sync
         // See ds5_iio_hid_timestamp_reader description

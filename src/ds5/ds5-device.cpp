@@ -535,33 +535,33 @@ namespace librealsense
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_backup(new ds5_timestamp_reader(backend.create_time_service()));
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new ds5_timestamp_reader_from_metadata(std::move(timestamp_reader_backup)));
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto depth_ep = std::make_shared<uvc_sensor>("Raw Depth Sensor", std::make_shared<platform::multi_pins_uvc_device>(depth_devices),
+        auto raw_depth_ep = std::make_shared<uvc_sensor>("Raw Depth Sensor", std::make_shared<platform::multi_pins_uvc_device>(depth_devices),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
 
-        depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
+        raw_depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
 
-        auto smart_depth_ep = std::make_shared<ds5_depth_sensor>(this, depth_ep);
-        smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
+        auto depth_ep = std::make_shared<ds5_depth_sensor>(this, raw_depth_ep);
+        depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        smart_depth_ep->register_processing_block(
+        depth_ep->register_processing_block(
             { {RS2_FORMAT_Y8I} },
             { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
             []() { return std::make_shared<y8i_to_y8y8>(); 
         });
 
-        smart_depth_ep->register_processing_block(
+        depth_ep->register_processing_block(
             { {RS2_FORMAT_Y8} },
             { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} },
             []() { return std::make_shared<identity_processing_block>(); }
         );
 
-        smart_depth_ep->register_processing_block(
+        depth_ep->register_processing_block(
             { {RS2_FORMAT_Z16} },
             { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH} },
             []() { return std::make_shared<identity_processing_block>(); }
         );
 
-        return smart_depth_ep;
+        return depth_ep;
     }
 
     ds5_device::ds5_device(std::shared_ptr<context> ctx,
@@ -902,21 +902,20 @@ namespace librealsense
         std::unique_ptr<frame_timestamp_reader> ds5_timestamp_reader_metadata(new ds5_timestamp_reader_from_metadata(std::move(ds5_timestamp_reader_backup)));
 
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto depth_ep = std::make_shared<uvc_sensor>("Depth Sensor", std::make_shared<platform::multi_pins_uvc_device>(depth_devices), std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
+        auto raw_depth_ep = std::make_shared<uvc_sensor>("Depth Sensor", std::make_shared<platform::multi_pins_uvc_device>(depth_devices), std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
+        auto depth_ep = std::make_shared<ds5u_depth_sensor>(this, raw_depth_ep);
 
         depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
+        raw_depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
 
-        depth_ep->register_pixel_format(pf_z16); // Depth
+        raw_depth_ep->register_pixel_format(pf_z16); // Depth
 
         // Support DS5U-specific pixel format
-        depth_ep->register_pixel_format(pf_w10);
-        depth_ep->register_pixel_format(pf_uyvyl);
+        raw_depth_ep->register_pixel_format(pf_w10); // TODO - Ariel - add support for DS5U
+        raw_depth_ep->register_pixel_format(pf_uyvyl);
 
-        auto smart_depth_ep = std::make_shared<ds5u_depth_sensor>(this, depth_ep);
-
-        return smart_depth_ep;
+        return depth_ep;
     }
 
     ds5u_device::ds5u_device(std::shared_ptr<context> ctx,

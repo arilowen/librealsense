@@ -80,8 +80,8 @@ typedef enum rs2_format
     RS2_FORMAT_DISTANCE        , /**< 32-bit float-point depth distance value.  */
     RS2_FORMAT_MJPEG           , /**< Bitstream encoding for video in which an image of each frame is encoded as JPEG-DIB   */
     RS2_FORMAT_Y8I             , /**< 8-bit per pixel interleaved. 8-bit left, 8-bit right.  */
-    RS2_FORMAT_INZI            , /**< 32-bit infra-red image followed by depth data.  */
-    RS2_FORMAT_INVI            , /**< 32-bit float-point depth distance value.  */
+    RS2_FORMAT_INZI            , /**< multi-planar Depth 16bit + IR 10bit.  */
+    RS2_FORMAT_INVI            , /**< 8-bit IR stream.  */
     RS2_FORMAT_COUNT             /**< Number of enumeration values. Not a valid input: intended to be used in for-loops. */
 } rs2_format;
 const char* rs2_format_to_string(rs2_format format);
