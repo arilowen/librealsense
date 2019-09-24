@@ -1,4 +1,7 @@
-#include "l500-transform.h"
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 Intel Corporation. All Rights Reserved.
+
+#include "rotation-transform.h"
 
 #include "../include/librealsense2/hpp/rs_sensor.hpp"
 #include "../include/librealsense2/hpp/rs_processing.hpp"
@@ -8,11 +11,11 @@
 
 namespace librealsense
 {
-    l500_transform::l500_transform(rs2_format target_format)
-        : l500_transform("L500 Transform", target_format)
+    rotation_transform::rotation_transform(rs2_format target_format)
+        : rotation_transform("Rotation Transform", target_format)
     {}
 
-    l500_transform::l500_transform(const char* name, rs2_format target_format)
+    rotation_transform::rotation_transform(const char* name, rs2_format target_format)
         : stream_filter_processing_block(name)
     {
         _target_format = target_format;
@@ -35,7 +38,7 @@ namespace librealsense
         _stream_filter.format = target_format;
     }
 
-    rs2::frame l500_transform::process_frame(const rs2::frame_source& source, const rs2::frame& f)
+    rs2::frame rotation_transform::process_frame(const rs2::frame_source& source, const rs2::frame& f)
     {
         auto p = f.get_profile();
         if (p.get() != _source_stream_profile.get())
@@ -47,6 +50,12 @@ namespace librealsense
             // The frames are piped through a syncer and must have the origin UID.
             auto target_spi = (stream_profile_interface*)_target_stream_profile.get()->profile;
             target_spi->set_unique_id(p.unique_id());
+        }
+
+        if (f.is<rs2::motion_frame>())
+        {
+            LOG_ERROR("Trying to rotate a motion frame.");
+            return rs2::frame();
         }
 
         auto vf = f.as<rs2::video_frame>();

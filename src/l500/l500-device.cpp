@@ -15,7 +15,7 @@
 #include "proc/zero-order.h"
 #include "proc/syncer-processing-block.h"
 #include "proc/identity-processing-block.h"
-#include "proc/l500-transform.h"
+#include "proc/rotation-transform.h"
 
 namespace librealsense
 {
@@ -105,40 +105,40 @@ namespace librealsense
 
         std::unique_ptr<frame_timestamp_reader> timestamp_reader_metadata(new l500_timestamp_reader_from_metadata(backend.create_time_service()));
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto depth_ep = std::make_shared<uvc_sensor>("Depth Sensor", std::make_shared<platform::multi_pins_uvc_device>(depth_devices),
+        auto raw_depth_ep = std::make_shared<uvc_sensor>("Raw Depth Sensor", std::make_shared<platform::multi_pins_uvc_device>(depth_devices),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
-        depth_ep->register_xu(depth_xu);
+        raw_depth_ep->register_xu(depth_xu);
 
-        auto smart_depth_ep = std::make_shared<l500_depth_sensor>(this, depth_ep);
-        smart_depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
-        smart_depth_ep->register_option(RS2_OPTION_VISUAL_PRESET,
+        auto depth_ep = std::make_shared<l500_depth_sensor>(this, raw_depth_ep);
+        depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
+        depth_ep->register_option(RS2_OPTION_VISUAL_PRESET,
             std::make_shared<uvc_xu_option<int>>(
-                *depth_ep,
+                *raw_depth_ep,
                 ivcam2::depth_xu,
                 ivcam2::L500_DEPTH_VISUAL_PRESET, "Preset to calibrate the camera to short or long range. 1 is long range and 2 is short range",
                 std::map<float, std::string>{ { 1, "Long range"},
                 { 2, "Short range" }}));
 
-        smart_depth_ep->register_processing_block(
+        depth_ep->register_processing_block(
             { {RS2_FORMAT_Y8} },
             { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1, 0, 0, 0, &rotate_resolution} },
             []() {
-            return std::make_shared<l500_transform>(RS2_FORMAT_Y8);
+            return std::make_shared<rotation_transform>(RS2_FORMAT_Y8);
         });
 
-        smart_depth_ep->register_processing_block(
+        depth_ep->register_processing_block(
             { {RS2_FORMAT_RAW8} },
             { {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution} },
             []() {
-            return std::make_shared<l500_transform>(RS2_FORMAT_RAW8);
+            return std::make_shared<rotation_transform>(RS2_FORMAT_RAW8);
         });
 
-        smart_depth_ep->register_processing_block(
+        depth_ep->register_processing_block(
             { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8} },
             { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution} },
             []() {
-            auto z16rot = std::make_shared<l500_transform>(RS2_FORMAT_Z16);
-            auto y8rot = std::make_shared<l500_transform>(RS2_FORMAT_Y8);
+            auto z16rot = std::make_shared<rotation_transform>(RS2_FORMAT_Z16);
+            auto y8rot = std::make_shared<rotation_transform>(RS2_FORMAT_Y8);
             auto sync = std::make_shared<syncer_process_unit>();
             auto zo = std::make_shared<zero_order>();
 
@@ -151,16 +151,16 @@ namespace librealsense
             return cpb;
         });
 
-        smart_depth_ep->register_processing_block(
+        depth_ep->register_processing_block(
             { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8}, {RS2_FORMAT_RAW8} },
             {
                 {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution},
                 {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution}
             },
             []() {
-            auto z16rot = std::make_shared<l500_transform>(RS2_FORMAT_Z16);
-            auto y8rot = std::make_shared<l500_transform>(RS2_FORMAT_Y8);
-            auto conf = std::make_shared<l500_transform>(RS2_FORMAT_RAW8);
+            auto z16rot = std::make_shared<rotation_transform>(RS2_FORMAT_Z16);
+            auto y8rot = std::make_shared<rotation_transform>(RS2_FORMAT_Y8);
+            auto conf = std::make_shared<rotation_transform>(RS2_FORMAT_RAW8);
             auto sync = std::make_shared<syncer_process_unit>();
             auto zo = std::make_shared<zero_order>();
 
@@ -174,7 +174,7 @@ namespace librealsense
             return cpb;
         });
 
-        return smart_depth_ep;
+        return depth_ep;
     }
 
     void l500_device::force_hardware_reset() const

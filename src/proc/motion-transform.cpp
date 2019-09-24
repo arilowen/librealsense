@@ -13,15 +13,14 @@
 namespace librealsense
 {
     motion_transform::motion_transform(rs2_format target_format, rs2_stream target_stream, frame_callback_ptr cb)
-        : motion_transform("Motion Transform")
-    {
-        _callback = cb;
-        _target_format = target_format;
-        _target_stream = target_stream;
-    }
+        : motion_transform("Motion Transform", target_format, target_stream, cb)
+    {}
 
-    motion_transform::motion_transform(const char* name)
-        : stream_filter_processing_block(name)
+    motion_transform::motion_transform(const char* name, rs2_format target_format, rs2_stream target_stream, frame_callback_ptr cb)
+        : stream_filter_processing_block(name),
+        _callback(cb),
+        _target_format(target_format),
+        _target_stream(target_stream)
     {} 
 
     rs2::frame motion_transform::process_frame(const rs2::frame_source& source, const rs2::frame& f)

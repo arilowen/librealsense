@@ -13,7 +13,7 @@ namespace librealsense
         motion_transform(rs2_format target_format, rs2_stream target_stream, frame_callback_ptr cb = nullptr);
 
     protected:
-        motion_transform(const char* name);
+        motion_transform(const char* name, rs2_format target_format, rs2_stream target_stream, frame_callback_ptr cb);
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
         frame_callback_ptr _callback;
 

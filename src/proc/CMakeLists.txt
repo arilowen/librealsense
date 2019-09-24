@@ -28,7 +28,7 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/rates-printer.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/zero-order.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/units-transform.cpp"
-        "${CMAKE_CURRENT_LIST_DIR}/l500-transform.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/rotation-transform.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/color-formats-converter.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/motion-transform.cpp"
 
@@ -50,7 +50,7 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/rates-printer.h"
         "${CMAKE_CURRENT_LIST_DIR}/zero-order.h"
         "${CMAKE_CURRENT_LIST_DIR}/units-transform.h"
-        "${CMAKE_CURRENT_LIST_DIR}/l500-transform.h"
+        "${CMAKE_CURRENT_LIST_DIR}/rotation-transform.h"
 	"${CMAKE_CURRENT_LIST_DIR}/color-formats-converter.h"
 	"${CMAKE_CURRENT_LIST_DIR}/motion-transform.h"
 )

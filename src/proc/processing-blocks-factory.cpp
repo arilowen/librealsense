@@ -32,10 +32,9 @@ namespace librealsense
         _source_info(from), _target_info(to), generate_processing_block(generate_func)
     {}
 
-    bool processing_block_factory::operator==(const processing_block_factory & rhs)
+    bool processing_block_factory::operator==(const processing_block_factory & rhs) const
     {
-
-        auto&& rhs_src_fmts = rhs.get_source_info();
+        const auto&& rhs_src_fmts = rhs.get_source_info();
         for (auto src : _source_info)
         {
             if (std::find_if(rhs_src_fmts.begin(), rhs_src_fmts.end(), [&src](auto fmt) {
@@ -44,7 +43,7 @@ namespace librealsense
                 return false;
         }
 
-        auto&& rhs_tgt_fmts = rhs.get_target_info();
+        const auto&& rhs_tgt_fmts = rhs.get_target_info();
         for (auto tgt : _target_info)
         {
             if (std::find_if(rhs_tgt_fmts.begin(), rhs_tgt_fmts.end(), [&tgt](auto rhs_tgt) {
@@ -56,7 +55,7 @@ namespace librealsense
         return true;
     }
 
-    bool processing_block_factory::has_source(std::shared_ptr<stream_profile_interface> source)
+    bool processing_block_factory::has_source(std::shared_ptr<stream_profile_interface> source) const
     {
         for (auto s : _source_info)
         {
@@ -66,7 +65,7 @@ namespace librealsense
         return false;
     }
 
-    stream_profiles processing_block_factory::find_satisfied_requests(stream_profiles requests)
+    stream_profiles processing_block_factory::find_satisfied_requests(stream_profiles requests) const
     {
         // Return all requests which find a match with a target in this processing block factory.
 

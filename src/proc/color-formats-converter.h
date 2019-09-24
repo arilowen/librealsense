@@ -25,6 +25,6 @@ namespace librealsense
         rs2::stream_profile _source_stream_profile;
         rs2_format _source_format;
         rs2_format _target_format;
-        int _traget_bpp = 0;
+        int _target_bpp = 0;
     };
 }

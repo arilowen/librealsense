@@ -1,15 +1,18 @@
+// License: Apache 2.0. See LICENSE file in root directory.
+// Copyright(c) 2019 Intel Corporation. All Rights Reserved.
+
 #pragma once
 
 #include "synthetic-stream.h"
 
 namespace librealsense
 {
-    // Processes L500 rotated frames.
-    class l500_transform : public stream_filter_processing_block
+    // Processes rotated frames.
+    class rotation_transform : public stream_filter_processing_block
     {
     public:
-        l500_transform(rs2_format target_format);
-        l500_transform(const char* name, rs2_format target_format);
+        rotation_transform(rs2_format target_format);
+        rotation_transform(const char* name, rs2_format target_format);
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f);
 
     private:

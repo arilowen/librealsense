@@ -162,8 +162,6 @@ namespace librealsense
             auto results = synthetic_sensor::init_stream_profiles();
             for (auto p : results)
             {
-                auto sp = As<video_stream_profile, stream_profile_interface>(p);
-
                 // Register stream types
                 if (p->get_stream_type() == RS2_STREAM_DEPTH)
                 {
