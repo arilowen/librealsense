@@ -145,20 +145,6 @@ namespace librealsense
         target->set_unique_id(uid);
     }
 
-    //rs2_format sensor_base::advanced_to_backend_format(rs2_format format) const
-    //{
-    //    rs2_format f = RS2_FORMAT_ANY;
-    //    try {
-    //        f = _advanced_to_backend_format.at(format);
-    //    }
-    //    catch (std::out_of_range)
-    //    {
-    //        //throw invalid_value_exception(to_string() << "rs2_stream of fourcc " << fourcc_format << " not found!");
-    //    }
-
-    //    return f;
-    //}
-
     stream_profiles sensor_base::get_stream_profiles(int tag) const
     {
         if (tag == profile_tag::PROFILE_TAG_ANY)
