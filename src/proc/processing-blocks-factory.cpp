@@ -32,6 +32,11 @@ namespace librealsense
         _source_info(from), _target_info(to), generate_processing_block(generate_func)
     {}
 
+    std::shared_ptr<processing_block> processing_block_factory::generate()
+    {
+        return generate_processing_block();
+    }
+
     bool processing_block_factory::operator==(const processing_block_factory & rhs) const
     {
         const auto&& rhs_src_fmts = rhs.get_source_info();

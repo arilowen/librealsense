@@ -20,10 +20,9 @@ namespace librealsense
             std::vector<stream_profile> to,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
-        std::function<std::shared_ptr<processing_block>(void)> generate_processing_block;
-
         std::vector<stream_profile> get_source_info() const { return _source_info; }
         std::vector<stream_profile> get_target_info() const { return _target_info; }
+        std::shared_ptr<processing_block> generate();
 
         bool operator==(const processing_block_factory& rhs) const;
 
@@ -33,5 +32,6 @@ namespace librealsense
     protected:
         std::vector<stream_profile> _source_info;
         std::vector<stream_profile> _target_info;
+        std::function<std::shared_ptr<processing_block>(void)> generate_processing_block;
     };
 }

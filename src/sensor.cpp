@@ -1005,18 +1005,14 @@ namespace librealsense
 
     void synthetic_sensor::register_option(rs2_option id, std::shared_ptr<option> option)
     {
-        // register the option in the raw sensor.
+        // Register the option to both raw sensor and synthetic sensor.
         _raw_sensor->register_option(id, option);
-
-        // Register a bypassed option which correlates to the raw sensor option.
-        // Each time an option will be queried, the related raw sensor's option will be addressed.
-        sensor_base::register_option(id, std::make_shared<bypass_option>(this, id));
+        sensor_base::register_option(id, option);
     }
 
     void synthetic_sensor::unregister_option(rs2_option id)
     {
         _raw_sensor->unregister_option(id);
-
         sensor_base::unregister_option(id);
     }
 
@@ -1061,7 +1057,7 @@ namespace librealsense
         return cloned;
     }
 
-    bool synthetic_sensor::is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, stream_profiles profiles)
+    bool synthetic_sensor::is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, const stream_profiles& profiles)
     {
         // Check if the given profile (duplicate parameter) is already found in profiles list.
 
@@ -1090,31 +1086,6 @@ namespace librealsense
         stream_profiles result_profiles;
         auto profiles = _raw_sensor->get_stream_profiles();
 
-        // motion profiles are passed-through
-        if (Is<hid_sensor, sensor_base>(_raw_sensor))
-        {
-            for (auto profile : profiles)
-            {
-                auto target = to_profile(profile.get());
-                _source_to_target_profiles_map[profile].push_back(profile);
-                _target_to_source_profiles_map[target].push_back(profile);
-
-            }
-            for (auto&& pbf : _pb_factories)
-            {
-                for (auto profile : profiles)
-                {
-                    for (auto&& source : pbf->get_source_info())
-                    {
-                        if (profile->get_stream_type() == source.stream)
-                            pbf_supported_profiles[pbf].push_back(profile);
-                    }
-                }
-            }
-            return profiles;
-        }
-
-        // handle non-motion profiles
         for (auto&& pbf : _pb_factories)
         {
             auto& sources = pbf->get_source_info();
@@ -1125,10 +1096,16 @@ namespace librealsense
                 // add profiles that are supported by the device
                 for (auto& profile : profiles)
                 {
-                    if (profile->get_format() == source.format)
+                    if (profile->get_format() == source.format &&
+                        (source.stream == profile->get_stream_type() || source.stream == RS2_STREAM_ANY))
                     {
                         for (auto&& target : targets)
                         {
+                            // In case of many sources to many targets, the stream profiles may differ from the source to the target.
+                            // Disregard these cases.
+                            if (target.stream != profile->get_stream_type())
+                                continue;
+
                             target.fps = profile->get_framerate();
 
                             auto cloned_profile = clone_profile(profile);
@@ -1147,14 +1124,10 @@ namespace librealsense
 
                             // Add the cloned profile to the supported profiles by this processing block factory,
                             // for later processing validation in resolving the request.
-                            pbf_supported_profiles[pbf].push_back(cloned_profile);
+                            pbf_supported_profiles[pbf.get()].push_back(cloned_profile);
 
                             // cache the source to target mapping
-                            if (profile->get_stream_type() == cloned_profile->get_stream_type())
-                            {
-                                _source_to_target_profiles_map[profile].push_back(cloned_profile);
-                            }
-
+                            _source_to_target_profiles_map[profile].push_back(cloned_profile);
                             // cache each target profile to its source profiles which were generated from.
                             _target_to_source_profiles_map[target].push_back(profile);
 
@@ -1174,7 +1147,7 @@ namespace librealsense
         return result_profiles;
     }
 
-    std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> synthetic_sensor::find_requests_best_pb_match(stream_profiles requests)
+    std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> synthetic_sensor::find_requests_best_pb_match(const stream_profiles& requests)
     {      
         // Find and retrieve best fitting processing block to the given requests, and the requests which were the best fit.
 
@@ -1189,7 +1162,7 @@ namespace librealsense
         int count = 0;
         for (auto&& pbf : _pb_factories)
         {
-            auto satisfied_req = pbf->find_satisfied_requests(requests, pbf_supported_profiles[pbf]);
+            auto satisfied_req = pbf->find_satisfied_requests(requests, pbf_supported_profiles[pbf.get()]);
             count = satisfied_req.size();
             if (count > max_satisfied_req
                 || (count == max_satisfied_req
@@ -1205,7 +1178,7 @@ namespace librealsense
         return {best_match_processing_block_factory, best_match_requests};
     }
 
-    std::unordered_set<std::shared_ptr<stream_profile_interface>> synthetic_sensor::map_requests_to_source_profiles(stream_profiles requests)
+    std::unordered_set<std::shared_ptr<stream_profile_interface>> synthetic_sensor::map_requests_to_source_profiles(const stream_profiles& requests)
     {
         // Find the source profiles matching the requests which were cached in the profiles init.
 
@@ -1307,7 +1280,7 @@ namespace librealsense
                 }
             }
             // Generate the best fitting processing block and append it to the cached processing blocks.
-            _formats_to_processing_block[best_pb->get_source_info()] = best_pb->generate_processing_block();
+            _formats_to_processing_block[best_pb->get_source_info()] = best_pb->generate();
         }
         
         resolved_req = { resolved_req_set.begin(), resolved_req_set.end() };
@@ -1328,6 +1301,7 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
         _raw_sensor->close();
         _formats_to_processing_block.erase(begin(_formats_to_processing_block), end(_formats_to_processing_block));
+        cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }
 
     template<class T>
@@ -1442,11 +1416,10 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
         _raw_sensor->stop();
-        cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }
 
-    void synthetic_sensor::register_processing_block(std::vector<stream_profile> from,
-        std::vector<stream_profile> to,
+    void synthetic_sensor::register_processing_block(const std::vector<stream_profile>& from,
+        const std::vector<stream_profile>& to,
         std::function<std::shared_ptr<processing_block>(void)> generate_func)
     {
         _pb_factories.push_back(std::make_shared<processing_block_factory>(from, to, generate_func));

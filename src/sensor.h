@@ -142,57 +142,31 @@ namespace librealsense
         void start(frame_callback_ptr callback) override;
         void stop() override;
 
-        void register_processing_block(std::vector<stream_profile> from,
-            std::vector<stream_profile> to,
+        void register_processing_block(const std::vector<stream_profile>& from,
+            const std::vector<stream_profile>& to,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
         std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
 
-        std::map<std::shared_ptr<stream_profile_interface>, stream_profiles> _source_to_target_profiles_map;
-        std::unordered_map<stream_profile, stream_profiles> _target_to_source_profiles_map;
-        std::unordered_map<rs2_format, stream_profiles> cached_requests;
-
     private:
-        class bypass_option : public option
-        {
-        public:
-            bypass_option(synthetic_sensor* parent, rs2_option opt)
-                : _parent(parent), _opt(opt) {}
-
-            void set(float value) override {
-                if (_parent->get_raw_sensor()->supports_option(_opt))
-                    _parent->get_raw_sensor()->get_option(_opt).set(value);
-            }
-            float query() const override { return get().query(); }
-            option_range get_range() const override { return get().get_range(); }
-            bool is_enabled() const override { return get().is_enabled(); }
-            bool is_read_only() const override { return get().is_read_only(); }
-            const char* get_description() const override { return get().get_description(); }
-            const char* get_value_description(float v) const override { return get().get_value_description(v); }
-            void enable_recording(std::function<void(const option &)> record_action) override {}
-
-            option& get() { return _parent->get_raw_sensor()->get_option(_opt); }
-            const option& get() const { return _parent->get_raw_sensor()->get_option(_opt); }
-        private:
-            synthetic_sensor* _parent;
-            rs2_option _opt;
-        };
-
         stream_profiles resolve_requests(const stream_profiles& requests);
         std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_interface* f);
         void sort_profiles(stream_profiles * profiles);
-        std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> find_requests_best_pb_match(stream_profiles sp);
-        std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(stream_profiles requests);
+        std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> find_requests_best_pb_match(const stream_profiles& sp);
+        std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(const stream_profiles& requests);
         std::shared_ptr<stream_profile_interface> correlate_target_source_profiles(std::shared_ptr<stream_profile_interface> source_profile, std::shared_ptr<stream_profile_interface> request);
-        bool is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, stream_profiles profiles);
+        bool is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, const stream_profiles& profiles);
         std::shared_ptr<stream_profile_interface> clone_profile(std::shared_ptr<stream_profile_interface> profile);
-        std::map<std::shared_ptr<processing_block_factory>, stream_profiles> pbf_supported_profiles;
 
         std::mutex _synthetic_configure_lock;
 
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<std::shared_ptr<processing_block_factory>> _pb_factories;
         std::map<std::vector<stream_profile>, std::shared_ptr<processing_block>> _formats_to_processing_block;
+        std::map<std::shared_ptr<stream_profile_interface>, stream_profiles> _source_to_target_profiles_map;
+        std::map<processing_block_factory*, stream_profiles> pbf_supported_profiles;
+        std::unordered_map<stream_profile, stream_profiles> _target_to_source_profiles_map;
+        std::unordered_map<rs2_format, stream_profiles> cached_requests;
     };
 
     class iio_hid_timestamp_reader : public frame_timestamp_reader
