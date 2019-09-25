@@ -1100,21 +1100,31 @@ namespace librealsense
                 _target_to_source_profiles_map[target].push_back(profile);
 
             }
+            for (auto&& pbf : _pb_factories)
+            {
+                for (auto profile : profiles)
+                {
+                    for (auto&& source : pbf->get_source_info())
+                    {
+                        if (profile->get_stream_type() == source.stream)
+                            pbf_supported_profiles[pbf].push_back(profile);
+                    }
+                }
+            }
             return profiles;
         }
 
         // handle non-motion profiles
         for (auto&& pbf : _pb_factories)
         {
-            auto& sources = pbf.get_source_info();
-            auto& targets = pbf.get_target_info();
+            auto& sources = pbf->get_source_info();
+            auto& targets = pbf->get_target_info();
 
             for (auto& source : sources)
             {
                 // add profiles that are supported by the device
                 for (auto& profile : profiles)
                 {
-                    
                     if (profile->get_format() == source.format)
                     {
                         for (auto&& target : targets)
@@ -1135,8 +1145,11 @@ namespace librealsense
                                 cloned_vsp->set_dims(target.width, target.height);
                             }
 
+                            // Add the cloned profile to the supported profiles by this processing block factory,
+                            // for later processing validation in resolving the request.
+                            pbf_supported_profiles[pbf].push_back(cloned_profile);
+
                             // cache the source to target mapping
-                            //if (profile->get_format() == cloned_profile->get_format())
                             if (profile->get_stream_type() == cloned_profile->get_stream_type())
                             {
                                 _source_to_target_profiles_map[profile].push_back(cloned_profile);
@@ -1161,7 +1174,7 @@ namespace librealsense
         return result_profiles;
     }
 
-    std::pair<processing_block_factory, stream_profiles> synthetic_sensor::find_requests_best_pb_match(stream_profiles requests)
+    std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> synthetic_sensor::find_requests_best_pb_match(stream_profiles requests)
     {      
         // Find and retrieve best fitting processing block to the given requests, and the requests which were the best fit.
 
@@ -1169,21 +1182,21 @@ namespace librealsense
         // covers the maximum amount of requests.
 
         stream_profiles best_match_requests;
-        processing_block_factory best_match_processing_block_factory;
+        std::shared_ptr<processing_block_factory> best_match_processing_block_factory;
 
         int max_satisfied_req = 0;
         int best_source_size = 0;
         int count = 0;
         for (auto&& pbf : _pb_factories)
         {
-            auto satisfied_req = pbf.find_satisfied_requests(requests);
+            auto satisfied_req = pbf->find_satisfied_requests(requests, pbf_supported_profiles[pbf]);
             count = satisfied_req.size();
             if (count > max_satisfied_req
                 || (count == max_satisfied_req
-                    && pbf.get_source_info().size() < best_source_size))
+                    && pbf->get_source_info().size() < best_source_size))
             {
                 max_satisfied_req = count;
-                best_source_size = pbf.get_source_info().size();
+                best_source_size = pbf->get_source_info().size();
                 best_match_processing_block_factory = pbf;
                 best_match_requests = satisfied_req;
             }
@@ -1285,7 +1298,7 @@ namespace librealsense
                 auto mapped_source_profiles = _target_to_source_profiles_map[target];
                 for (auto source_profile : mapped_source_profiles)
                 {
-                    if (best_pb.has_source(source_profile))
+                    if (best_pb->has_source(source_profile))
                     {
                         // init_stream_profiles() cloned the source profiles and converted them into target profiles.
                         // we must pass the missing data from the target profiles to the source profiles.
@@ -1294,7 +1307,7 @@ namespace librealsense
                 }
             }
             // Generate the best fitting processing block and append it to the cached processing blocks.
-            _formats_to_processing_block[best_pb.get_source_info()] = best_pb.generate_processing_block();
+            _formats_to_processing_block[best_pb->get_source_info()] = best_pb->generate_processing_block();
         }
         
         resolved_req = { resolved_req_set.begin(), resolved_req_set.end() };
@@ -1436,7 +1449,6 @@ namespace librealsense
         std::vector<stream_profile> to,
         std::function<std::shared_ptr<processing_block>(void)> generate_func)
     {
-        processing_block_factory pbf(from, to, generate_func);
-        _pb_factories.push_back(pbf);
+        _pb_factories.push_back(std::make_shared<processing_block_factory>(from, to, generate_func));
     }
 }

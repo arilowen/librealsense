@@ -65,18 +65,16 @@ namespace librealsense
         return false;
     }
 
-    stream_profiles processing_block_factory::find_satisfied_requests(stream_profiles requests) const
+    stream_profiles processing_block_factory::find_satisfied_requests(stream_profiles requests, stream_profiles supported_profiles) const
     {
-        // Return all requests which find a match with a target in this processing block factory.
+        // Return all requests which are related to this processing block factory.
 
         stream_profiles satisfied_req;
-        auto tgts = _target_info;
         for (auto&& req : requests)
         {
-            if (std::find_if(begin(tgts), end(tgts), [&req](auto tgt) {
-                return req->get_format() == tgt.format &&
-                    req->get_stream_type() == tgt.stream;
-            }) != end(tgts))
+            if (std::find_if(begin(supported_profiles), end(supported_profiles), [&req](auto sp) {
+                return req == sp;
+            }) != end(supported_profiles))
                 satisfied_req.push_back(req);
         }
         return satisfied_req;

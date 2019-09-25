@@ -6,6 +6,7 @@
 #include "align.h"
 #include "types.h"
 
+
 namespace librealsense
 {
     std::shared_ptr<librealsense::align> create_align(rs2_stream align_to);
@@ -26,7 +27,7 @@ namespace librealsense
 
         bool operator==(const processing_block_factory& rhs) const;
 
-        stream_profiles find_satisfied_requests(stream_profiles sp) const;
+        stream_profiles find_satisfied_requests(stream_profiles sp, stream_profiles supported_profiles) const;
         bool has_source(std::shared_ptr<stream_profile_interface> source) const;
 
     protected:
