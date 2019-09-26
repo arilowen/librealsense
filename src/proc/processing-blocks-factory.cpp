@@ -28,7 +28,7 @@ namespace librealsense
 #endif // __SSSE3__
 #endif // RS2_USE_CUDA
 
-    processing_block_factory::processing_block_factory(std::vector<stream_profile> from, std::vector<stream_profile> to, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
+    processing_block_factory::processing_block_factory(const std::vector<stream_profile>& from, const std::vector<stream_profile>& to, std::function<std::shared_ptr<processing_block>(void)> generate_func) :
         _source_info(from), _target_info(to), generate_processing_block(generate_func)
     {}
 
@@ -60,7 +60,7 @@ namespace librealsense
         return true;
     }
 
-    bool processing_block_factory::has_source(std::shared_ptr<stream_profile_interface> source) const
+    bool processing_block_factory::has_source(const std::shared_ptr<stream_profile_interface>& source) const
     {
         for (auto s : _source_info)
         {
@@ -70,7 +70,7 @@ namespace librealsense
         return false;
     }
 
-    stream_profiles processing_block_factory::find_satisfied_requests(stream_profiles requests, stream_profiles supported_profiles) const
+    stream_profiles processing_block_factory::find_satisfied_requests(const stream_profiles& requests, const stream_profiles& supported_profiles) const
     {
         // Return all requests which are related to this processing block factory.
 

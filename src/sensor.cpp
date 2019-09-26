@@ -1039,7 +1039,7 @@ namespace librealsense
         });
     }
 
-    std::shared_ptr<stream_profile_interface> synthetic_sensor::clone_profile(std::shared_ptr<stream_profile_interface> profile)
+    std::shared_ptr<stream_profile_interface> synthetic_sensor::clone_profile(const std::shared_ptr<stream_profile_interface>& profile)
     {
         auto cloned = profile->clone();
 
@@ -1099,7 +1099,7 @@ namespace librealsense
                     if (profile->get_format() == source.format &&
                         (source.stream == profile->get_stream_type() || source.stream == RS2_STREAM_ANY))
                     {
-                        for (auto&& target : targets)
+                        for (auto target : targets)
                         {
                             // In case of many sources to many targets, the stream profiles may differ from the source to the target.
                             // Disregard these cases.
@@ -1195,12 +1195,12 @@ namespace librealsense
         return mapped_source_profiles;
     }
 
-    std::shared_ptr<stream_profile_interface> synthetic_sensor::correlate_target_source_profiles(std::shared_ptr<stream_profile_interface> source_profile, std::shared_ptr<stream_profile_interface> request)
+    const std::shared_ptr<stream_profile_interface>& synthetic_sensor::correlate_target_source_profiles(std::shared_ptr<stream_profile_interface>& source_profile, const std::shared_ptr<stream_profile_interface>& request)
     {
         // Correlate the desired target profile (the request) to the source profile (the one exposed by the backend device).
         // This is needed because we duplicate the source profile into multiple target profiles in the init_stream_profiles() method.
         
-        auto target_profiles = _source_to_target_profiles_map[source_profile];
+        auto&& target_profiles = _source_to_target_profiles_map[source_profile];
 
         // find the closest target profile to the request, if there is none, just take the first.
         auto best_match = std::find_if(target_profiles.begin(), target_profiles.end(), [request](auto sp)
@@ -1212,12 +1212,12 @@ namespace librealsense
 
         // Update the source profile's fields with the correlated target profile.
         // This profile will be propagated to the generated frame received from the backend sensor.
-        auto correlated_target_profile = best_match != target_profiles.end() ? *best_match : target_profiles.front();
+        auto&& correlated_target_profile = best_match != target_profiles.end() ? *best_match : target_profiles.front();
         source_profile->set_stream_index(correlated_target_profile->get_stream_index());
         source_profile->set_unique_id(correlated_target_profile->get_unique_id());
         source_profile->set_stream_type(correlated_target_profile->get_stream_type());
-        auto vsp = As<video_stream_profile, stream_profile_interface>(source_profile);
-        auto cvsp = As<video_stream_profile, stream_profile_interface>(correlated_target_profile);
+        auto&& vsp = As<video_stream_profile, stream_profile_interface>(source_profile);
+        const auto&& cvsp = As<video_stream_profile, stream_profile_interface>(correlated_target_profile);
         if (vsp)
         {
             vsp->set_intrinsics([cvsp]() {
@@ -1250,14 +1250,14 @@ namespace librealsense
         while (!unhandled_reqs.empty())
         {
             // find the best fitting processing block - the one which resolves the most requests.
-            auto best_match = find_requests_best_pb_match(unhandled_reqs);
-            auto best_pb = best_match.first;
-            auto best_reqs = best_match.second;
+            const auto&& best_match = find_requests_best_pb_match(unhandled_reqs);
+            auto&& best_pbf = best_match.first;
+            auto&& best_reqs = best_match.second;
             
             // mark as handled resolved requests
             for (auto req : best_reqs)
             {
-                auto unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
+                auto&& unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
                     return to_profile(req.get()) == to_profile(sp.get());
                 });
                 if (unhandled_req != end(unhandled_reqs))
@@ -1265,22 +1265,26 @@ namespace librealsense
             }
 
             // Retrieve source profile from cached map.
+            stream_profiles cached_resolved_req;
+            auto&& best_pb = best_pbf->generate();
             for (auto req : best_reqs)
             {
-                auto target = to_profile(req.get());
-                auto mapped_source_profiles = _target_to_source_profiles_map[target];
+                auto&& target = to_profile(req.get());
+                auto&& mapped_source_profiles = _target_to_source_profiles_map[target];
+
                 for (auto source_profile : mapped_source_profiles)
                 {
-                    if (best_pb->has_source(source_profile))
+                    if (best_pbf->has_source(source_profile))
                     {
                         // init_stream_profiles() cloned the source profiles and converted them into target profiles.
                         // we must pass the missing data from the target profiles to the source profiles.
                         resolved_req_set.insert(correlate_target_source_profiles(source_profile, req));
+                        cached_resolved_req.push_back(source_profile);
+                        _profiles_to_processing_block[source_profile] = best_pb;
                     }
                 }
             }
-            // Generate the best fitting processing block and append it to the cached processing blocks.
-            _formats_to_processing_block[best_pb->get_source_info()] = best_pb->generate();
+            LOG_DEBUG("Request: " << best_reqs << "\nResolved to: " << cached_resolved_req);
         }
         
         resolved_req = { resolved_req_set.begin(), resolved_req_set.end() };
@@ -1300,7 +1304,7 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
         _raw_sensor->close();
-        _formats_to_processing_block.erase(begin(_formats_to_processing_block), end(_formats_to_processing_block));
+        _profiles_to_processing_block.erase(begin(_profiles_to_processing_block), end(_profiles_to_processing_block));
         cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }
 
@@ -1315,23 +1319,27 @@ namespace librealsense
 
     std::shared_ptr<stream_profile_interface> synthetic_sensor::filter_frame_by_requests(frame_interface* f)
     {
-        std::shared_ptr<stream_profile_interface> cached_profile;
         auto cached_req = cached_requests.find(f->get_stream()->get_format());
         if (cached_req == cached_requests.end())
-            return cached_profile;
+            return nullptr;
 
+        // TODO - Ariel - change to find_if
         // find a match between the request and the processed frame
-        for (auto req : cached_req->second)
-        {
-            if (req->get_stream_index() == f->get_stream()->get_stream_index() &&
-                req->get_stream_type() == f->get_stream()->get_stream_type())
-            {
-                cached_profile = req;
-                break;
-            }
-        }
+        //for (auto req : cached_req->second)
+        //{
+        //    if (req->get_stream_index() == f->get_stream()->get_stream_index() &&
+        //        req->get_stream_type() == f->get_stream()->get_stream_type())
+        //    {
+        //        return req;
+        //    }
+        //}
+        auto&& reqs = cached_req->second;
+        auto&& req_it = std::find_if(begin(reqs), end(reqs), [&f](auto req) {
+            return (req->get_stream_index() == f->get_stream()->get_stream_index() &&
+                req->get_stream_type() == f->get_stream()->get_stream_type());
+        });
 
-        return cached_profile;
+        return req_it != end(reqs) ? *req_it : nullptr;
     }
 
     void synthetic_sensor::start(frame_callback_ptr callback)
@@ -1353,11 +1361,11 @@ namespace librealsense
             }
 
             // process only frames which aren't composite.
-            for (auto fr : frames_to_process)
+            for (auto&& fr : frames_to_process)
             {
                 if (!dynamic_cast<composite_frame*>(fr))
                 {
-                    auto cached_profile = filter_frame_by_requests(fr);
+                    auto&& cached_profile = filter_frame_by_requests(fr);
 
                     if (cached_profile)
                     {
@@ -1369,12 +1377,11 @@ namespace librealsense
                     fr->acquire();
                     callback->on_frame((rs2_frame*)fr);
                 }
-
             }
         });
 
         // Set callbacks for all of the relevant processing blocks
-        for (auto&& pb_entry : _formats_to_processing_block)
+        for (auto&& pb_entry : _profiles_to_processing_block)
         {
             auto&& pb = pb_entry.second;
             if (pb)
@@ -1385,27 +1392,11 @@ namespace librealsense
 
         // Invoke processing blocks callback
         auto process_cb = make_callback([&, callback, this](frame_holder f) {
-            for (auto&& pb_entry : _formats_to_processing_block)
-            {
-                if (!f)
-                    return;
+            if (!f)
+                return;
 
-                auto&& pb = pb_entry.second;
-                auto&& sources_info = pb_entry.first;
-
-                // process only if the frame format matches the processing block source format and stream type.
-                auto sp = f->get_stream();
-                auto source_info_it = std::find_if(sources_info.begin(), sources_info.end(), [&f, &sp](auto info)
-                {
-                    return info.format == sp->get_format() &&
-                        (info.stream == RS2_STREAM_ANY ||
-                        info.stream == sp->get_stream_type());
-                });
-                if (source_info_it == sources_info.end())
-                    continue;
-
-                pb->invoke(std::move(f));
-            }
+            auto&& pb = _profiles_to_processing_block[f->get_stream()];
+            pb->invoke(std::move(f));
         });
 
         // call the processing block on the frame

@@ -164,6 +164,14 @@ namespace librealsense
     using stream_profiles = std::vector<std::shared_ptr<stream_profile_interface>>;
     using processing_blocks = std::vector<std::shared_ptr<processing_block_interface>>;
 
+    inline std::ostream& operator << (std::ostream& os, const stream_profiles& profiles)
+    {
+        for (auto&& p : profiles)
+        {
+            os << rs2_format_to_string(p->get_format()) << " " << rs2_stream_to_string(p->get_stream_type()) << ", ";
+        }
+        return os;
+    }
 
     class recommended_proccesing_blocks_interface
     {

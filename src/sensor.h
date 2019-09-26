@@ -154,17 +154,17 @@ namespace librealsense
         void sort_profiles(stream_profiles * profiles);
         std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> find_requests_best_pb_match(const stream_profiles& sp);
         std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(const stream_profiles& requests);
-        std::shared_ptr<stream_profile_interface> correlate_target_source_profiles(std::shared_ptr<stream_profile_interface> source_profile, std::shared_ptr<stream_profile_interface> request);
+        const std::shared_ptr<stream_profile_interface>& correlate_target_source_profiles(std::shared_ptr<stream_profile_interface>& source_profile, const std::shared_ptr<stream_profile_interface>& request);
         bool is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, const stream_profiles& profiles);
-        std::shared_ptr<stream_profile_interface> clone_profile(std::shared_ptr<stream_profile_interface> profile);
+        std::shared_ptr<stream_profile_interface> clone_profile(const std::shared_ptr<stream_profile_interface>& profile);
 
         std::mutex _synthetic_configure_lock;
 
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<std::shared_ptr<processing_block_factory>> _pb_factories;
-        std::map<std::vector<stream_profile>, std::shared_ptr<processing_block>> _formats_to_processing_block;
-        std::map<std::shared_ptr<stream_profile_interface>, stream_profiles> _source_to_target_profiles_map;
-        std::map<processing_block_factory*, stream_profiles> pbf_supported_profiles;
+        std::unordered_map<processing_block_factory*, stream_profiles> pbf_supported_profiles;
+        std::unordered_map<std::shared_ptr<stream_profile_interface>, std::shared_ptr<processing_block>> _profiles_to_processing_block;
+        std::unordered_map<std::shared_ptr<stream_profile_interface>, stream_profiles> _source_to_target_profiles_map;
         std::unordered_map<stream_profile, stream_profiles> _target_to_source_profiles_map;
         std::unordered_map<rs2_format, stream_profiles> cached_requests;
     };

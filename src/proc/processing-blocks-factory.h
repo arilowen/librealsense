@@ -16,8 +16,8 @@ namespace librealsense
     public:
         processing_block_factory() {};
 
-        processing_block_factory(std::vector<stream_profile> from,
-            std::vector<stream_profile> to,
+        processing_block_factory(const std::vector<stream_profile>& from,
+            const std::vector<stream_profile>& to,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
 
         std::vector<stream_profile> get_source_info() const { return _source_info; }
@@ -26,8 +26,8 @@ namespace librealsense
 
         bool operator==(const processing_block_factory& rhs) const;
 
-        stream_profiles find_satisfied_requests(stream_profiles sp, stream_profiles supported_profiles) const;
-        bool has_source(std::shared_ptr<stream_profile_interface> source) const;
+        stream_profiles find_satisfied_requests(const stream_profiles& sp, const stream_profiles& supported_profiles) const;
+        bool has_source(const std::shared_ptr<stream_profile_interface>& source) const;
 
     protected:
         std::vector<stream_profile> _source_info;
