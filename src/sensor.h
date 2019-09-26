@@ -155,7 +155,7 @@ namespace librealsense
         std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> find_requests_best_pb_match(const stream_profiles& sp);
         std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(const stream_profiles& requests);
         const std::shared_ptr<stream_profile_interface>& correlate_target_source_profiles(std::shared_ptr<stream_profile_interface>& source_profile, const std::shared_ptr<stream_profile_interface>& request);
-        bool is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, const stream_profiles& profiles);
+        bool is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles);
         std::shared_ptr<stream_profile_interface> clone_profile(const std::shared_ptr<stream_profile_interface>& profile);
 
         std::mutex _synthetic_configure_lock;

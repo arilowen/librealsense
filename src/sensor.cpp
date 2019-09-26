@@ -1057,7 +1057,7 @@ namespace librealsense
         return cloned;
     }
 
-    bool synthetic_sensor::is_duplicated_profile(std::shared_ptr<stream_profile_interface> duplicate, const stream_profiles& profiles)
+    bool synthetic_sensor::is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles)
     {
         // Check if the given profile (duplicate parameter) is already found in profiles list.
 
@@ -1323,16 +1323,6 @@ namespace librealsense
         if (cached_req == cached_requests.end())
             return nullptr;
 
-        // TODO - Ariel - change to find_if
-        // find a match between the request and the processed frame
-        //for (auto req : cached_req->second)
-        //{
-        //    if (req->get_stream_index() == f->get_stream()->get_stream_index() &&
-        //        req->get_stream_type() == f->get_stream()->get_stream_type())
-        //    {
-        //        return req;
-        //    }
-        //}
         auto&& reqs = cached_req->second;
         auto&& req_it = std::find_if(begin(reqs), end(reqs), [&f](auto req) {
             return (req->get_stream_index() == f->get_stream()->get_stream_index() &&
