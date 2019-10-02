@@ -145,6 +145,7 @@ namespace librealsense
         void register_processing_block(const std::vector<stream_profile>& from,
             const std::vector<stream_profile>& to,
             std::function<std::shared_ptr<processing_block>(void)> generate_func);
+        void register_processing_block(const processing_block_factory& pbf);
 
         std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
 
@@ -154,7 +155,7 @@ namespace librealsense
         void sort_profiles(stream_profiles * profiles);
         std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> find_requests_best_pb_match(const stream_profiles& sp);
         std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(const stream_profiles& requests);
-        const std::shared_ptr<stream_profile_interface>& correlate_target_source_profiles(std::shared_ptr<stream_profile_interface>& source_profile, const std::shared_ptr<stream_profile_interface>& request);
+        void add_source_profile_missing_data(std::shared_ptr<stream_profile_interface>& source_profile);
         bool is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles);
         std::shared_ptr<stream_profile_interface> clone_profile(const std::shared_ptr<stream_profile_interface>& profile);
 

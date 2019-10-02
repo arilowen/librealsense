@@ -11,20 +11,51 @@
 
 namespace librealsense
 {
-    class LRS_EXTENSION_API color_formats_converter : public stream_filter_processing_block
+    class yuy2_converter : public color_processing_block
     {
     public:
-        color_formats_converter(rs2_format source_format, rs2_format target_format);
+        yuy2_converter(rs2_format target_format) :
+            yuy2_converter("YUY Converter", target_format) {};
 
     protected:
-        color_formats_converter(const char* name, rs2_format source_format, rs2_format target_format);
+        yuy2_converter(const char* name, rs2_format target_format) :
+            color_processing_block(name, target_format) {};
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+    };
 
-    private:
-        rs2::stream_profile _target_stream_profile;
-        rs2::stream_profile _source_stream_profile;
-        rs2_format _source_format;
-        rs2_format _target_format;
-        int _target_bpp = 0;
+    class uyvy_converter : public color_processing_block
+    {
+    public:
+        uyvy_converter(rs2_format target_format) :
+            uyvy_converter("UYVY Converter", target_format) {};
+
+    protected:
+        uyvy_converter(const char* name, rs2_format target_format) :
+            color_processing_block(name, target_format) {};
+        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+    };
+
+    class mjpeg_converter : public color_processing_block
+    {
+    public:
+        mjpeg_converter(rs2_format target_format) :
+            mjpeg_converter("MJPEG Converter", target_format) {};
+
+    protected:
+        mjpeg_converter(const char* name, rs2_format target_format) :
+            color_processing_block(name, target_format) {};
+        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+    };
+
+    class raw16_converter : public color_processing_block
+    {
+    public:
+        raw16_converter(rs2_format target_format) :
+            raw16_converter("RAW16 Converter", target_format) {};
+
+    protected:
+        raw16_converter(const char* name, rs2_format target_format) :
+            color_processing_block(name, target_format) {};
+        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
     };
 }

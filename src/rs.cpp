@@ -1897,7 +1897,7 @@ NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(nullptr)
 
 rs2_processing_block* rs2_create_yuy_decoder(rs2_error** error) BEGIN_API_CALL
 {
-    return new rs2_processing_block { std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGB8) };
+    return new rs2_processing_block { std::make_shared<yuy2_converter>(RS2_FORMAT_RGB8) };
 }
 NOARGS_HANDLE_EXCEPTIONS_AND_RETURN(nullptr)
 

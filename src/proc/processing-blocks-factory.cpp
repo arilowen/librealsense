@@ -2,10 +2,12 @@
 // Copyright(c) 2017 Intel Corporation. All Rights Reserved.
 
 #include "processing-blocks-factory.h"
+
 #include "sse/sse-align.h"
 #include "cuda/cuda-align.h"
 
 #include "stream.h"
+#include "proc/identity-processing-block.h"
 
 namespace librealsense
 {
@@ -35,6 +37,16 @@ namespace librealsense
     std::shared_ptr<processing_block> processing_block_factory::generate()
     {
         return generate_processing_block();
+    }
+
+    processing_block_factory processing_block_factory::create_id_pbf(rs2_format format, rs2_stream stream)
+    {
+        processing_block_factory id_pbf = {
+            { {format} },
+            { {format, stream} },
+            []() { return std::make_shared<identity_processing_block>(); }
+        };
+        return id_pbf;
     }
 
     bool processing_block_factory::operator==(const processing_block_factory & rhs) const

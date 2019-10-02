@@ -14,12 +14,12 @@ namespace librealsense
     void unpack_confidence(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_l500_z16_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_l500_y8_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size);
-    void unpack_yuy2_to(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size);
-    void unpack_uyvyc_to(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size);
-    void unpack_bayer16(byte * const dest[], const byte * source, int width, int height, int actual_size);
+    void unpack_yuy2(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size);
+    void unpack_uyvyc(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size);
+    void unpack_bayer16(rs2_format dst_format, byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_acceleration_axes(byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_gyroscope_axes(byte * const dest[], const byte * source, int width, int height, int actual_size);
-    void unpack_mjpeg(byte * const dest[], const byte * source, int width, int height, int actual_size);
+    void unpack_mjpeg(rs2_format dst_format, byte * const dest[], const byte * source, int width, int height, int actual_size);
 
     size_t           get_image_size                 (int width, int height, rs2_format format);
     int              get_image_bpp                  (rs2_format format);

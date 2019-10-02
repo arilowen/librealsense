@@ -14,6 +14,7 @@
 #include "proc/decimation-filter.h"
 #include "global_timestamp_reader.h"
 #include "metadata.h"
+#include "proc/identity-processing-block.h"
 
 #include "../common/tiny-profiler.h"
 
@@ -1101,11 +1102,6 @@ namespace librealsense
                     {
                         for (auto target : targets)
                         {
-                            // In case of many sources to many targets, the stream profiles may differ from the source to the target.
-                            // Disregard these cases.
-                            if (target.stream != profile->get_stream_type())
-                                continue;
-
                             target.fps = profile->get_framerate();
 
                             auto cloned_profile = clone_profile(profile);
@@ -1195,19 +1191,17 @@ namespace librealsense
         return mapped_source_profiles;
     }
 
-    const std::shared_ptr<stream_profile_interface>& synthetic_sensor::correlate_target_source_profiles(std::shared_ptr<stream_profile_interface>& source_profile, const std::shared_ptr<stream_profile_interface>& request)
+    void synthetic_sensor::add_source_profile_missing_data(std::shared_ptr<stream_profile_interface>& source_profile)
     {
-        // Correlate the desired target profile (the request) to the source profile (the one exposed by the backend device).
+        // Add the missing data to the desired source profile.
         // This is needed because we duplicate the source profile into multiple target profiles in the init_stream_profiles() method.
         
         auto&& target_profiles = _source_to_target_profiles_map[source_profile];
 
-        // find the closest target profile to the request, if there is none, just take the first.
-        auto best_match = std::find_if(target_profiles.begin(), target_profiles.end(), [request](auto sp)
+        // find the closest target profile to the source profile, if there is none, just take the first.
+        auto best_match = std::find_if(target_profiles.begin(), target_profiles.end(), [source_profile](auto sp)
         {
-            return request->get_format() == sp->get_format() &&
-                request->get_stream_index() == sp->get_stream_index() &&
-                request->get_stream_type() == sp->get_stream_type();
+            return source_profile->get_format() == sp->get_format();
         });
 
         // Update the source profile's fields with the correlated target profile.
@@ -1229,7 +1223,6 @@ namespace librealsense
             });
             vsp->set_dims(cvsp->get_width(), cvsp->get_height());
         }
-        return source_profile;
     }
 
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
@@ -1265,8 +1258,8 @@ namespace librealsense
             }
 
             // Retrieve source profile from cached map.
-            stream_profiles cached_resolved_req;
-            auto&& best_pb = best_pbf->generate();
+            std::unordered_set<std::shared_ptr<stream_profile_interface>> current_resolved_reqs;
+            auto best_pb = best_pbf->generate();
             for (auto req : best_reqs)
             {
                 auto&& target = to_profile(req.get());
@@ -1278,13 +1271,15 @@ namespace librealsense
                     {
                         // init_stream_profiles() cloned the source profiles and converted them into target profiles.
                         // we must pass the missing data from the target profiles to the source profiles.
-                        resolved_req_set.insert(correlate_target_source_profiles(source_profile, req));
-                        cached_resolved_req.push_back(source_profile);
+                        add_source_profile_missing_data(source_profile);
+                        resolved_req_set.insert(source_profile);
+                        current_resolved_reqs.insert(source_profile);
                         _profiles_to_processing_block[source_profile] = best_pb;
                     }
                 }
             }
-            LOG_DEBUG("Request: " << best_reqs << "\nResolved to: " << cached_resolved_req);
+            stream_profiles print_current_resolved_reqs = { current_resolved_reqs.begin(), current_resolved_reqs.end() };
+            LOG_DEBUG("Request: " << best_reqs << "\nResolved to: " << print_current_resolved_reqs);
         }
         
         resolved_req = { resolved_req_set.begin(), resolved_req_set.end() };
@@ -1404,5 +1399,10 @@ namespace librealsense
         std::function<std::shared_ptr<processing_block>(void)> generate_func)
     {
         _pb_factories.push_back(std::make_shared<processing_block_factory>(from, to, generate_func));
+    }
+
+    void synthetic_sensor::register_processing_block(const processing_block_factory& pbf)
+    {
+        _pb_factories.push_back(std::make_shared<processing_block_factory>(std::move(pbf)));
     }
 }

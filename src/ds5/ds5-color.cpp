@@ -154,25 +154,25 @@ namespace librealsense
                 roi_sensor->set_roi_method(std::make_shared<ds5_auto_exposure_roi_method>(*_hw_monitor, ds::fw_cmd::SETRGBAEROI));
         }
 
-        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGB8); });
-        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_RGBA8); });
-        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGR8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_BGR8); });
-        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGRA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_BGRA8); });
-        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_Y16, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_YUYV, RS2_FORMAT_Y16); });
-        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_YUYV, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
+        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_RGB8); });
+        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_RGBA8); });
+        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGR8, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_BGR8); });
+        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_BGRA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_BGRA8); });
+        color_ep->register_processing_block({ {RS2_FORMAT_YUYV} }, { {RS2_FORMAT_Y16, RS2_STREAM_COLOR} }, []() { return std::make_shared<yuy2_converter>(RS2_FORMAT_Y16); });
+        color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_YUYV, RS2_STREAM_COLOR));
 
-        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_UYVY, RS2_FORMAT_RGB8); });
-        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_UYVY, RS2_FORMAT_RGBA8); });
-        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_BGR8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_UYVY, RS2_FORMAT_BGR8); });
-        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_BGRA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_UYVY, RS2_FORMAT_BGRA8); });
-        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_UYVY, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
+        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<uyvy_converter>(RS2_FORMAT_RGB8); });
+        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<uyvy_converter>(RS2_FORMAT_RGBA8); });
+        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_BGR8, RS2_STREAM_COLOR} }, []() { return std::make_shared<uyvy_converter>(RS2_FORMAT_BGR8); });
+        color_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_BGRA8, RS2_STREAM_COLOR} }, []() { return std::make_shared<uyvy_converter>(RS2_FORMAT_BGRA8); });
+        color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_UYVY, RS2_STREAM_COLOR));
 
-        color_ep->register_processing_block({ {RS2_FORMAT_RAW16} }, { {RS2_FORMAT_RAW16, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
+        color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_RAW16, RS2_STREAM_COLOR));
         
         if (color_devices_info.front().pid == ds::RS465_PID)
         {
-            color_ep->register_processing_block({ {RS2_FORMAT_MJPEG} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<color_formats_converter>(RS2_FORMAT_MJPEG, RS2_FORMAT_RGB8); });
-            color_ep->register_processing_block({ {RS2_FORMAT_MJPEG} }, { {RS2_FORMAT_MJPEG, RS2_STREAM_COLOR} }, []() { return std::make_shared<identity_processing_block>(); });
+            color_ep->register_processing_block({ {RS2_FORMAT_MJPEG} }, { {RS2_FORMAT_RGB8, RS2_STREAM_COLOR} }, []() { return std::make_shared<mjpeg_converter>(RS2_FORMAT_RGB8); });
+            color_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_MJPEG, RS2_STREAM_COLOR));
         }
 
         _color_device_idx = add_sensor(color_ep);
