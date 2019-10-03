@@ -197,7 +197,6 @@ namespace librealsense
     {
     public:
         mm_calib_handler(std::shared_ptr<hw_monitor> hw_monitor, ds::d400_caps dev_cap);
-        mm_calib_handler(const mm_calib_handler&);
         ~mm_calib_handler() {}
 
         ds::imu_intrinsic get_intrinsic(rs2_stream);

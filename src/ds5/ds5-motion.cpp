@@ -188,77 +188,34 @@ namespace librealsense
         }
         fps_and_sampling_frequency_per_rs2_stream[RS2_STREAM_ACCEL] = fps_and_frequency_map;
 
-        auto hid_ep = std::make_shared<hid_sensor>(ctx->get_backend().create_hid_device(all_hid_infos.front()),
+        auto raw_hid_ep = std::make_shared<hid_sensor>(ctx->get_backend().create_hid_device(all_hid_infos.front()),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(iio_hid_ts_reader), _tf_keeper, enable_global_time_option)),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(custom_hid_ts_reader), _tf_keeper, enable_global_time_option)),
             fps_and_sampling_frequency_per_rs2_stream,
             sensor_name_and_hid_profiles,
             this);
 
-        auto smart_hid_ep = std::make_shared<ds5_hid_sensor>("Motion Module", hid_ep, this, this);
+        auto hid_ep = std::make_shared<ds5_hid_sensor>("Motion Module", raw_hid_ep, this, this);
 
         hid_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        // motion correction handling
-        float3x3 imu_to_depth;
-        try {
-            imu_to_depth = _mm_calib->imu_to_depth_alignment();
-        }
-        catch (const std::exception& ex) {
-            LOG_INFO("Motion Module - no extrinsic calibration, " << ex.what());
-        }
-        auto align_imu_axes = [hid_ep, imu_to_depth, this](frame_interface* fr)
-        {
-            if (fr->get_stream()->get_format() != RS2_FORMAT_MOTION_XYZ32F)
-                return;
-
-            auto xyz = (float3*)(fr->get_frame_data());
-
-            try
-            {
-                auto accel_intrinsic = *_accel_intrinsic;
-                auto gyro_intrinsic = *_gyro_intrinsic;
-
-                bool enable_motion_correction = false;
-                if (hid_ep->supports_option(RS2_OPTION_ENABLE_MOTION_CORRECTION))
-                {
-                    auto&& motion_correction_opt = hid_ep->get_option(RS2_OPTION_ENABLE_MOTION_CORRECTION);
-                    enable_motion_correction = motion_correction_opt.is_enabled();
-                }
-
-                if (enable_motion_correction)
-                {
-                    
-                    rs2_stream stream = fr->get_stream()->get_stream_type();
-                    if (stream == RS2_STREAM_ACCEL)
-                        *xyz = (accel_intrinsic.sensitivity * (*xyz)) - accel_intrinsic.bias;
-
-                    if (stream == RS2_STREAM_GYRO)
-                        *xyz = gyro_intrinsic.sensitivity * (*xyz) - gyro_intrinsic.bias;
-                }
-            }
-            catch (const std::exception& ex)
-            {
-                LOG_INFO("Motion Module - no intrinsic calibration, " << ex.what());
-            }
-
-            // The IMU sensor orientation shall be aligned with depth sensor's coordinate system
-            *xyz = imu_to_depth * (*xyz);
-            
-        };
-        frame_callback_ptr post_process_cb = std::make_shared<internal_frame_callback<decltype(align_imu_axes)>>(align_imu_axes);
-
         // register pre-processing
-        smart_hid_ep->register_processing_block(
+        bool enable_motion_correction = false;
+        if (hid_ep->supports_option(RS2_OPTION_ENABLE_MOTION_CORRECTION))
+        {
+            auto&& motion_correction_opt = hid_ep->get_option(RS2_OPTION_ENABLE_MOTION_CORRECTION);
+            enable_motion_correction = motion_correction_opt.is_enabled();
+        }
+        hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
-            [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, post_process_cb);
+            [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, _mm_calib.get(), enable_motion_correction);
         });
 
-        smart_hid_ep->register_processing_block(
+        hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
-            [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO, post_process_cb);
+            [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO, _mm_calib.get(), enable_motion_correction);
         });
 
         uint16_t pid = static_cast<uint16_t>(strtoul(all_hid_infos.front().pid.data(), nullptr, 16));
@@ -266,10 +223,10 @@ namespace librealsense
         if ((camera_fw_version >= firmware_version(custom_sensor_fw_ver)) && (!val_in_range(pid, { ds::RS400_IMU_PID, ds::RS435I_PID, ds::RS430I_PID, ds::RS465_PID })))
         {
             hid_ep->register_option(RS2_OPTION_MOTION_MODULE_TEMPERATURE,
-                                    std::make_shared<motion_module_temperature_option>(*hid_ep));
+                                    std::make_shared<motion_module_temperature_option>(*raw_hid_ep));
         }
 
-        return smart_hid_ep;
+        return hid_ep;
     }
 
     std::shared_ptr<auto_exposure_mechanism> ds5_motion::register_auto_exposure_options(synthetic_sensor* ep, const platform::extension_unit* fisheye_xu)
