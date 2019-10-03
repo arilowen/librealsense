@@ -140,22 +140,26 @@ namespace librealsense
         bool should_process(const rs2::frame& frame) override;
     };
 
-    class color_processing_block : public stream_filter_processing_block
+    class functional_processing_block : public stream_filter_processing_block
     {
     public:
-        color_processing_block(const char* name, rs2_format target_format);
+        functional_processing_block(const char* name, rs2_format target_format);
 
     protected:
+        virtual void init(const rs2::frame* f);
+
         template<typename F>
         rs2::frame pre_process_frame(const rs2::frame_source& source, const rs2::frame& f, F process)
         {
             auto&& ret = prepare_frame(source, f);
             auto vf = ret.as<rs2::video_frame>();
+            int width = vf.get_width();
+            int height = vf.get_height();
 
             byte* planes[1];
             planes[0] = (byte*)ret.get_data();
 
-            process(_target_format, planes, (const byte*)f.get_data(), vf.get_width(), vf.get_height(), vf.get_height() * vf.get_width() * _target_bpp);
+            process(_target_format, planes, (const byte*)f.get_data(), width, height, height * width * _target_bpp);
 
             return ret;
         };
@@ -164,6 +168,7 @@ namespace librealsense
         rs2::stream_profile _target_stream_profile;
         rs2::stream_profile _source_stream_profile;
         rs2_format _target_format;
+        rs2_extension _extension_type;
         int _target_bpp = 0;
     };
 

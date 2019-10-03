@@ -1074,13 +1074,26 @@ namespace librealsense
         unpack_gyro_axes<RS2_FORMAT_MOTION_XYZ32F>(dest, source, width, height, actual_size);
     }
 
-    void unpack_l500_y8_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_rotated_optimized(rs2_format dst_format, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
-        unpack_l500_image_optimized<1>(dest, source, width, height, actual_size);
-    }
-    void unpack_l500_z16_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size)
-    {
-        unpack_l500_image_optimized<2>(dest, source, width, height, actual_size);
+        int rotated_width = height;
+        int rotated_height = width;
+        switch (dst_format)
+        {
+        case RS2_FORMAT_Z16:
+            unpack_l500_image_optimized<2>(dest, source, rotated_width, rotated_height, actual_size);
+            break;
+        case RS2_FORMAT_Y8:
+            unpack_l500_image_optimized<1>(dest, source, rotated_width, rotated_height, actual_size);
+            break;
+        case RS2_FORMAT_RAW8:
+            // Workaround: the height is given by bytes and not by pixels.
+            unpack_confidence(dest, source, rotated_width / 2, rotated_height, actual_size);
+            break;
+        default:
+            LOG_ERROR("Unsupported format for rotation conversion.");
+            break;
+        }
     }
 
 #ifdef ZERO_COPY

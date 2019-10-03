@@ -1,9 +1,11 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2017 Intel Corporation. All Rights Reserved.
 
-#include "core/video.h"
 #include "proc/synthetic-stream.h"
+
+#include "core/video.h"
 #include "option.h"
+#include "context.h"
 
 namespace librealsense
 {
@@ -494,26 +496,26 @@ namespace librealsense
         _processing_blocks.front()->invoke(std::move(frames));
     }
 
-    color_processing_block::color_processing_block(const char * name, rs2_format target_format) :
+    functional_processing_block::functional_processing_block(const char * name, rs2_format target_format) :
         stream_filter_processing_block(name), _target_format(target_format)
-    {
-        _stream_filter.stream = RS2_STREAM_COLOR;
-    }
+    {}
 
-    rs2::frame color_processing_block::prepare_frame(const rs2::frame_source & source, const rs2::frame & f)
+    void functional_processing_block::init(const rs2::frame * f)
     {
-        auto p = f.get_profile();
+        auto p = f->get_profile();
         if (p.get() != _source_stream_profile.get())
         {
             _source_stream_profile = p;
             _target_stream_profile = p.clone(p.stream_type(), p.stream_index(), _target_format);
             _target_bpp = get_image_bpp(_target_format) / 8;
         }
+    }
 
+    rs2::frame functional_processing_block::prepare_frame(const rs2::frame_source & source, const rs2::frame & f)
+    {
+        init(&f);
         auto vf = f.as<rs2::video_frame>();
-        rs2::frame ret = source.allocate_video_frame(_target_stream_profile, f, _target_bpp,
-            vf.get_width(), vf.get_height(), vf.get_width() * _target_bpp, RS2_EXTENSION_VIDEO_FRAME);
-
-        return ret;
+        return source.allocate_video_frame(_target_stream_profile, f, _target_bpp,
+            vf.get_width(), vf.get_height(), vf.get_width() * _target_bpp, _extension_type);
     }
 }

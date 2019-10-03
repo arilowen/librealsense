@@ -11,7 +11,22 @@
 
 namespace librealsense
 {
-    class yuy2_converter : public color_processing_block
+    class color_converter : public functional_processing_block
+    {
+    public:
+        color_converter(rs2_format target_format) :
+            color_converter("Color Transform", target_format) {};
+
+    protected:
+        color_converter(const char* name, rs2_format target_format) :
+            functional_processing_block(name, target_format)
+        {
+            _extension_type = RS2_EXTENSION_VIDEO_FRAME;
+            _stream_filter.stream = RS2_STREAM_COLOR;
+        };
+    };
+
+    class yuy2_converter : public color_converter
     {
     public:
         yuy2_converter(rs2_format target_format) :
@@ -19,11 +34,12 @@ namespace librealsense
 
     protected:
         yuy2_converter(const char* name, rs2_format target_format) :
-            color_processing_block(name, target_format) {};
+            color_converter(name, target_format)
+        {};
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
     };
 
-    class uyvy_converter : public color_processing_block
+    class uyvy_converter : public color_converter
     {
     public:
         uyvy_converter(rs2_format target_format) :
@@ -31,11 +47,11 @@ namespace librealsense
 
     protected:
         uyvy_converter(const char* name, rs2_format target_format) :
-            color_processing_block(name, target_format) {};
+            color_converter(name, target_format) {};
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
     };
 
-    class mjpeg_converter : public color_processing_block
+    class mjpeg_converter : public color_converter
     {
     public:
         mjpeg_converter(rs2_format target_format) :
@@ -43,11 +59,11 @@ namespace librealsense
 
     protected:
         mjpeg_converter(const char* name, rs2_format target_format) :
-            color_processing_block(name, target_format) {};
+            color_converter(name, target_format) {};
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
     };
 
-    class raw16_converter : public color_processing_block
+    class raw16_converter : public color_converter
     {
     public:
         raw16_converter(rs2_format target_format) :
@@ -55,7 +71,7 @@ namespace librealsense
 
     protected:
         raw16_converter(const char* name, rs2_format target_format) :
-            color_processing_block(name, target_format) {};
+            color_converter(name, target_format){};
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
     };
 }
