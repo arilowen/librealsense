@@ -85,7 +85,7 @@ namespace librealsense
         _polling_error_handler = std::unique_ptr<polling_error_handler>(
             new polling_error_handler(1000,
                 std::move(error_control),
-                get_depth_sensor().get_notifications_processor(),
+                raw_depth_sensor.get_notifications_processor(),
                 std::unique_ptr<notification_decoder>(new l500_notification_decoder())));
 
         depth_sensor.register_option(RS2_OPTION_ERROR_POLLING_ENABLED, std::make_shared<polling_errors_disable>(_polling_error_handler.get()));

@@ -48,7 +48,7 @@ namespace librealsense
                              recommended_proccesing_blocks_interface* owner);
         virtual ~sensor_base() override { _source.flush(); }
 
-        void set_owner_sensor(std::shared_ptr<sensor_base> owner) { _sensor_owner = owner; }
+        void set_source_owner(std::shared_ptr<sensor_base> owner) { _source_owner = owner; } // will direct the source to the top in the source hierarchy.
         virtual stream_profiles init_stream_profiles() = 0;
         stream_profiles get_stream_profiles(int tag = profile_tag::PROFILE_TAG_ANY) const override;
         virtual stream_profiles get_active_streams() const override;
@@ -56,22 +56,15 @@ namespace librealsense
         void register_notifications_callback(notifications_callback_ptr callback) override;
         int register_before_streaming_changes_callback(std::function<void(bool)> callback) override;
         void unregister_before_start_callback(int token) override;
-        std::shared_ptr<notifications_processor> get_notifications_processor();
+        virtual std::shared_ptr<notifications_processor> get_notifications_processor() const;
         virtual frame_callback_ptr get_frames_callback() const override;
         virtual void set_frames_callback(frame_callback_ptr callback) override;
-
-        bool is_streaming() const override
-        {
-            return _is_streaming;
-        }
-
+        bool is_streaming() const override;
         void register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const;
-
         void register_on_open(on_open callback)
         {
             _on_open = callback;
         }
-
         device_interface& get_device() override;
 
         void register_pixel_format(native_pixel_format pf);
@@ -108,7 +101,7 @@ namespace librealsense
         on_open _on_open;
         std::shared_ptr<metadata_parser_map> _metadata_parsers = nullptr;
 
-        std::shared_ptr<sensor_base> _sensor_owner;
+        std::shared_ptr<sensor_base> _source_owner;
         frame_source _source;
         device* _owner;
         std::vector<platform::stream_profile> _uvc_profiles;
@@ -148,6 +141,12 @@ namespace librealsense
         void register_processing_block(const processing_block_factory& pbf);
 
         std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
+        frame_callback_ptr get_frames_callback() const override;
+        void set_frames_callback(frame_callback_ptr callback) override;
+        notifications_callback_ptr get_notifications_callback() const override;
+        void register_notifications_callback(notifications_callback_ptr callback) override;
+        stream_profiles get_active_streams() const override;
+        bool is_streaming() const override;
 
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);

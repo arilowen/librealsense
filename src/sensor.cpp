@@ -101,7 +101,13 @@ namespace librealsense
     {
         return _source.set_callback(callback);
     }
-    std::shared_ptr<notifications_processor> sensor_base::get_notifications_processor()
+
+    bool sensor_base::is_streaming() const
+    {
+        return _is_streaming;
+    }
+
+    std::shared_ptr<notifications_processor> sensor_base::get_notifications_processor() const
     {
         return _notifications_processor;
     }
@@ -275,7 +281,7 @@ namespace librealsense
         auto on = std::unique_ptr<power>(new power(std::dynamic_pointer_cast<uvc_sensor>(shared_from_this())));
 
         _source.init(_metadata_parsers);
-        _source.set_sensor(_sensor_owner);
+        _source.set_sensor(_source_owner);
 
         std::vector<platform::stream_profile> commited;
 
@@ -435,9 +441,9 @@ namespace librealsense
         else if(!_is_opened)
             throw wrong_api_call_sequence_exception("start_streaming(...) failed. UVC device was not opened!");
 
+        raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
         _source.set_callback(callback);
         _is_streaming = true;
-        raise_on_before_streaming_changes(true); //Required to be just before actual start allow recording to work
         _device->start_callbacks();
     }
 
@@ -759,7 +765,7 @@ namespace librealsense
 
         _source.set_callback(callback);
         _source.init(_metadata_parsers);
-        _source.set_sensor(_sensor_owner);
+        _source.set_sensor(_source_owner);
 
         unsigned long long last_frame_number = 0;
         rs2_time_t last_timestamp = 0;
@@ -909,7 +915,6 @@ namespace librealsense
         device* dev)
        :   sensor_base(name, dev, (recommended_proccesing_blocks_interface*)this),
           _device(move(uvc_device)),
-          //_sensor_owner(this->shared_from_this()),
           _user_count(0),
           _timestamp_reader(std::move(timestamp_reader))
     {
@@ -1291,7 +1296,7 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
         auto resolved_req = resolve_requests(requests);
 
-        _raw_sensor->set_owner_sensor(this->shared_from_this());
+        _raw_sensor->set_source_owner(this->shared_from_this());
         _raw_sensor->open(resolved_req);
     }
 
@@ -1404,5 +1409,34 @@ namespace librealsense
     void synthetic_sensor::register_processing_block(const processing_block_factory& pbf)
     {
         _pb_factories.push_back(std::make_shared<processing_block_factory>(std::move(pbf)));
+    }
+
+    frame_callback_ptr synthetic_sensor::get_frames_callback() const
+    {
+        // passthrough method to raw sensor
+        return _raw_sensor->get_frames_callback();
+    }
+
+    void synthetic_sensor::set_frames_callback(frame_callback_ptr callback)
+    {
+        // passthrough method to raw sensor
+        _raw_sensor->set_frames_callback(callback);
+    }
+    notifications_callback_ptr synthetic_sensor::get_notifications_callback() const
+    {
+        return _raw_sensor->get_notifications_callback();
+    }
+    void synthetic_sensor::register_notifications_callback(notifications_callback_ptr callback)
+    {
+        _raw_sensor->register_notifications_callback(callback);
+    }
+
+    stream_profiles synthetic_sensor::get_active_streams() const
+    {
+        return _raw_sensor->get_active_streams();
+    }
+    bool synthetic_sensor::is_streaming() const
+    {
+        return _raw_sensor->is_streaming();
     }
 }
