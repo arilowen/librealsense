@@ -17,37 +17,14 @@ namespace librealsense
     {}
 
     motion_transform::motion_transform(const char* name, rs2_format target_format, rs2_stream target_stream, mm_calib_handler* mm_calib, bool is_motion_correction_enabled)
-        : stream_filter_processing_block(name),
+        : functional_processing_block(name, target_format, target_stream, RS2_EXTENSION_MOTION_FRAME),
         _mm_calib(mm_calib),
-        _is_motion_correction_enabled(is_motion_correction_enabled),
-        _target_format(target_format),
-        _target_stream(target_stream)
+        _is_motion_correction_enabled(is_motion_correction_enabled)
     {}
 
     rs2::frame motion_transform::process_frame(const rs2::frame_source& source, const rs2::frame& f)
     {
-        auto p = f.get_profile();
-        if (p.get() != _source_stream_profile.get())
-        {
-            _stream_filter.stream = _target_stream;
-            _stream_filter.format = _target_format;
-            _source_stream_profile = p;
-            _target_stream_profile = p.clone(p.stream_type(), p.stream_index(), _target_format);
-        }
-
-        int width = f.get_data_size();
-        int height = 1;
-        rs2::frame ret = source.allocate_motion_frame(_target_stream_profile, f,
-            width, height, RS2_EXTENSION_MOTION_FRAME);
-
-        byte* planes[1];
-        planes[0] = (byte*)ret.get_data();
-
-        if (_target_stream == RS2_STREAM_ACCEL)
-            unpack_acceleration_axes(planes, (const byte*)f.get_data(), width, height, width * height * _traget_bpp);
-        else if (_target_stream == RS2_STREAM_GYRO)
-            unpack_gyroscope_axes(planes, (const byte*)f.get_data(), width, height, width * height * _traget_bpp);
-
+        auto& ret = pre_process_frame(source, f, unpack_motion_axes);
         correct_motion(&ret);
 
         return ret;

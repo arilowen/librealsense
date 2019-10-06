@@ -208,6 +208,41 @@ namespace librealsense
         register_option(RS2_OPTION_STREAM_INDEX_FILTER, index_selector);
     }
 
+    functional_processing_block::functional_processing_block(const char * name, rs2_format target_format, rs2_stream target_stream, rs2_extension extension_type) :
+        stream_filter_processing_block(name), _target_format(target_format), _target_stream(target_stream), _extension_type(extension_type) {}
+
+    void functional_processing_block::init(const rs2::frame * f)
+    {
+        auto p = f->get_profile();
+        if (p.get() != _source_stream_profile.get())
+        {
+            _source_stream_profile = p;
+            _target_stream_profile = p.clone(p.stream_type(), p.stream_index(), _target_format);
+            _target_bpp = get_image_bpp(_target_format) / 8;
+        }
+    }
+
+    rs2::frame functional_processing_block::prepare_frame(const rs2::frame_source & source, const rs2::frame & f)
+    {
+        init(&f);
+        auto vf = f.as<rs2::video_frame>();
+        if (vf)
+        {
+            int width = vf.get_width();
+            int height = vf.get_height();
+            return source.allocate_video_frame(_target_stream_profile, f, _target_bpp,
+                width, height, width * _target_bpp, _extension_type);
+        }
+        auto mf = f.as<rs2::motion_frame>();
+        if (mf)
+        {
+            int width = f.get_data_size();
+            int height = 1;
+            return source.allocate_motion_frame(_target_stream_profile, f,
+                width, height, _extension_type);
+        }
+    }
+
     bool is_z_or_disparity(rs2_format format)
     {
         if (format == RS2_FORMAT_Z16 || format == RS2_FORMAT_DISPARITY16 || format == RS2_FORMAT_DISPARITY32)
@@ -494,28 +529,5 @@ namespace librealsense
         // Invoke the first processing block.
         // This will trigger processing the frame in a chain by the order of the given processing blocks vector.
         _processing_blocks.front()->invoke(std::move(frames));
-    }
-
-    functional_processing_block::functional_processing_block(const char * name, rs2_format target_format) :
-        stream_filter_processing_block(name), _target_format(target_format)
-    {}
-
-    void functional_processing_block::init(const rs2::frame * f)
-    {
-        auto p = f->get_profile();
-        if (p.get() != _source_stream_profile.get())
-        {
-            _source_stream_profile = p;
-            _target_stream_profile = p.clone(p.stream_type(), p.stream_index(), _target_format);
-            _target_bpp = get_image_bpp(_target_format) / 8;
-        }
-    }
-
-    rs2::frame functional_processing_block::prepare_frame(const rs2::frame_source & source, const rs2::frame & f)
-    {
-        init(&f);
-        auto vf = f.as<rs2::video_frame>();
-        return source.allocate_video_frame(_target_stream_profile, f, _target_bpp,
-            vf.get_width(), vf.get_height(), vf.get_width() * _target_bpp, _extension_type);
     }
 }

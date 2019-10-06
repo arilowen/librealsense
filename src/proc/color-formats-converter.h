@@ -19,11 +19,8 @@ namespace librealsense
 
     protected:
         color_converter(const char* name, rs2_format target_format) :
-            functional_processing_block(name, target_format)
-        {
-            _extension_type = RS2_EXTENSION_VIDEO_FRAME;
-            _stream_filter.stream = RS2_STREAM_COLOR;
-        };
+            functional_processing_block(name, target_format, RS2_STREAM_COLOR, RS2_EXTENSION_VIDEO_FRAME)
+        {};
     };
 
     class yuy2_converter : public color_converter
@@ -34,8 +31,7 @@ namespace librealsense
 
     protected:
         yuy2_converter(const char* name, rs2_format target_format) :
-            color_converter(name, target_format)
-        {};
+            color_converter(name, target_format) {};
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
     };
 

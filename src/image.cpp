@@ -897,7 +897,7 @@ namespace librealsense
         librealsense::copy(dest[0], source, actual_size);
     }
 
-    void unpack_mjpeg(rs2_format dst_format, byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_mjpeg(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         //STBIDEF stbi_uc *stbi_load_from_memory(stbi_uc const *buffer, int len, int *x, int *y, int *comp, int req_comp)
         int w, h, bpp;
@@ -1009,12 +1009,12 @@ namespace librealsense
         }
     }
 
-    void unpack_bayer16(rs2_format dst_format, byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_bayer16(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         copy_pixels<2>(dest, source, width, height, actual_size);
     }
 
-    void unpack_yuy2(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size)
+    void unpack_yuy2(rs2_format dst_format, rs2_stream dst_stream, byte * const d[], const byte * s, int w, int h, int actual_size)
     {
         switch (dst_format)
         {
@@ -1042,7 +1042,7 @@ namespace librealsense
         }
     }
 
-    void unpack_uyvyc(rs2_format dst_format, byte * const d[], const byte * s, int w, int h, int actual_size)
+    void unpack_uyvyc(rs2_format dst_format, rs2_stream dst_stream, byte * const d[], const byte * s, int w, int h, int actual_size)
     {
         switch (dst_format)
         {
@@ -1064,17 +1064,23 @@ namespace librealsense
         }
     }
 
-    void unpack_acceleration_axes(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_motion_axes(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
-        unpack_accel_axes<RS2_FORMAT_MOTION_XYZ32F>(dest, source, width, height, actual_size);
+        switch (dst_stream)
+        {
+        case RS2_STREAM_ACCEL:
+            unpack_accel_axes<RS2_FORMAT_MOTION_XYZ32F>(dest, source, width, height, actual_size);
+            break;
+        case RS2_STREAM_GYRO:
+            unpack_gyro_axes<RS2_FORMAT_MOTION_XYZ32F>(dest, source, width, height, actual_size);
+            break;
+        default:
+            LOG_ERROR("Unsupported stream type for motion unpacking.");
+            break;
+        }
     }
 
-    void unpack_gyroscope_axes(byte * const dest[], const byte * source, int width, int height, int actual_size)
-    {
-        unpack_gyro_axes<RS2_FORMAT_MOTION_XYZ32F>(dest, source, width, height, actual_size);
-    }
-
-    void unpack_rotated_optimized(rs2_format dst_format, byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_rotated_optimized(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         int rotated_width = height;
         int rotated_height = width;
