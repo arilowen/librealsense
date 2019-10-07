@@ -1,22 +1,21 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2015 Intel Corporation. All Rights Reserved.
+
+#include "sensor.h"
+
 #include <array>
 #include <set>
 #include <unordered_set>
-
-#include "source.h"
-#include "proc/synthetic-stream.h"
 #include <iomanip>
 
+#include "source.h"
 #include "device.h"
 #include "stream.h"
-#include "sensor.h"
-#include "proc/decimation-filter.h"
-#include "global_timestamp_reader.h"
 #include "metadata.h"
+#include "proc/synthetic-stream.h"
+#include "proc/decimation-filter.h"
 #include "proc/identity-processing-block.h"
-
-#include "../common/tiny-profiler.h"
+#include "global_timestamp_reader.h"
 
 namespace librealsense
 {
@@ -119,6 +118,16 @@ namespace librealsense
                 << " is already defined");
 
         _metadata_parsers.get()->insert(std::pair<rs2_frame_metadata_value, std::shared_ptr<md_attribute_parser_base>>(metadata, metadata_parser));
+    }
+
+    std::shared_ptr<std::map<uint32_t, rs2_format>>& sensor_base::get_fourcc_to_rs2_format_map()
+    {
+        return _fourcc_to_rs2_format;
+    }
+
+    std::shared_ptr<std::map<uint32_t, rs2_stream>>& sensor_base::get_fourcc_to_rs2_stream_map() 
+    {
+        return _fourcc_to_rs2_stream;
     }
 
     void sensor_base::raise_on_before_streaming_changes(bool streaming)
@@ -469,7 +478,7 @@ namespace librealsense
     {
         rs2_format f = RS2_FORMAT_ANY;
         try {
-            f = _fourcc_to_rs2_format.at(fourcc_format);
+            f = _fourcc_to_rs2_format->at(fourcc_format);
         }
         catch (std::out_of_range)
         {
@@ -482,7 +491,7 @@ namespace librealsense
     {
         rs2_stream s = RS2_STREAM_ANY;
         try {
-            s = _fourcc_to_rs2_stream.at(fourcc_format);
+            s = _fourcc_to_rs2_stream->at(fourcc_format);
         }
         catch (std::out_of_range)
         {
@@ -1002,9 +1011,22 @@ namespace librealsense
     ///////////////// Synthetic Sensor ///////////////////
     //////////////////////////////////////////////////////
 
-    synthetic_sensor::synthetic_sensor(std::string name, std::shared_ptr<sensor_base> sensor,
-        device* device) : sensor_base(name, device, (recommended_proccesing_blocks_interface*)this), _raw_sensor(std::move(sensor))
-    {}
+    synthetic_sensor::synthetic_sensor(std::string name,
+        std::shared_ptr<sensor_base> sensor,
+        device* device,
+        std::map<uint32_t, rs2_format> fourcc_to_rs2_format_map,
+        std::map<uint32_t, rs2_stream> fourcc_to_rs2_stream_map)
+        : sensor_base(name, device, (recommended_proccesing_blocks_interface*)this), _raw_sensor(std::move(sensor))
+    {
+        // synthetic sensor and its raw sensor will share the formats and streams mapping
+        auto& raw_fourcc_to_rs2_format_map = _raw_sensor->get_fourcc_to_rs2_format_map();
+        _fourcc_to_rs2_format = std::make_shared<std::map<uint32_t, rs2_format>>(fourcc_to_rs2_format_map);
+        raw_fourcc_to_rs2_format_map = _fourcc_to_rs2_format;
+
+        auto& raw_fourcc_to_rs2_stream_map = _raw_sensor->get_fourcc_to_rs2_stream_map();
+        _fourcc_to_rs2_stream = std::make_shared<std::map<uint32_t, rs2_stream>>(fourcc_to_rs2_stream_map);
+        raw_fourcc_to_rs2_stream_map = _fourcc_to_rs2_stream;
+    }
 
     synthetic_sensor::~synthetic_sensor()
     {}
@@ -1061,6 +1083,11 @@ namespace librealsense
         cloned->set_framerate(profile->get_framerate());
 
         return cloned;
+    }
+
+    void synthetic_sensor::register_processing_block_options(const processing_block & pb)
+    {
+
     }
 
     bool synthetic_sensor::is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles)
@@ -1255,16 +1282,16 @@ namespace librealsense
             // mark as handled resolved requests
             for (auto req : best_reqs)
             {
-                auto&& unhandled_req = std::find_if(unhandled_reqs.begin(), unhandled_reqs.end(), [&req](auto sp) {
+                const auto&& matching_req_predicate = [&req](auto sp) {
                     return to_profile(req.get()) == to_profile(sp.get());
-                });
-                if (unhandled_req != end(unhandled_reqs))
-                    unhandled_reqs.erase(unhandled_req);                   
+                };
+                unhandled_reqs.erase(std::remove_if(begin(unhandled_reqs), end(unhandled_reqs), matching_req_predicate));
             }
 
-            // Retrieve source profile from cached map.
+            // Retrieve source profile from cached map and generate the relevant processing block.
             std::unordered_set<std::shared_ptr<stream_profile_interface>> current_resolved_reqs;
             auto best_pb = best_pbf->generate();
+            register_processing_block_options(*best_pb);
             for (auto req : best_reqs)
             {
                 auto&& target = to_profile(req.get());
@@ -1317,7 +1344,7 @@ namespace librealsense
         };
     }
 
-    std::shared_ptr<stream_profile_interface> synthetic_sensor::filter_frame_by_requests(frame_interface* f)
+    std::shared_ptr<stream_profile_interface> synthetic_sensor::filter_frame_by_requests(const frame_interface* f)
     {
         auto cached_req = cached_requests.find(f->get_stream()->get_format());
         if (cached_req == cached_requests.end())
@@ -1435,6 +1462,13 @@ namespace librealsense
     {
         return _raw_sensor->get_active_streams();
     }
+
+    void synthetic_sensor::register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const
+    {
+        sensor_base::register_metadata(metadata, metadata_parser);
+        _raw_sensor->register_metadata(metadata, metadata_parser);
+    }
+
     bool synthetic_sensor::is_streaming() const
     {
         return _raw_sensor->is_streaming();

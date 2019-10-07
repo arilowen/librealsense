@@ -1,9 +1,12 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2016 Intel Corporation. All Rights Reserved.
 
+#include "ds5-motion.h"
+
 #include <mutex>
 #include <chrono>
 #include <vector>
+#include <map>
 #include <iterator>
 #include <cstddef>
 
@@ -15,7 +18,6 @@
 #include "ds5-timestamp.h"
 #include "ds5-options.h"
 #include "ds5-private.h"
-#include "ds5-motion.h"
 #include "core/motion.h"
 #include "stream.h"
 #include "environment.h"
@@ -23,6 +25,15 @@
 
 namespace librealsense
 {
+    std::map<uint32_t, rs2_format> fisheye_fourcc_to_rs2_format = {
+        {rs_fourcc('R','A','W','8'), RS2_FORMAT_RAW8},
+        {rs_fourcc('G','R','E','Y'), RS2_FORMAT_RAW8},
+    };
+    std::map<uint32_t, rs2_stream> fisheye_fourcc_to_rs2_stream = {
+        {rs_fourcc('R','A','W','8'), RS2_STREAM_FISHEYE},
+        {rs_fourcc('G','R','E','Y'), RS2_STREAM_FISHEYE},
+    };
+
     class fisheye_auto_exposure_roi_method : public region_of_interest_method
     {
     public:
@@ -53,7 +64,8 @@ namespace librealsense
             std::shared_ptr<sensor_base> sensor,
             device* device,
             ds5_motion* owner)
-            : synthetic_sensor(name, sensor, device), _owner(owner)
+            : synthetic_sensor(name, sensor, device),
+            _owner(owner)
         {}
 
         rs2_motion_device_intrinsic get_motion_intrinsics(rs2_stream stream) const
@@ -97,7 +109,7 @@ namespace librealsense
         explicit ds5_fisheye_sensor(std::shared_ptr<sensor_base> sensor,
             device* device,
             ds5_motion* owner)
-            : synthetic_sensor("Wide FOV Camera", sensor, device), _owner(owner)
+            : synthetic_sensor("Wide FOV Camera", sensor, device, fisheye_fourcc_to_rs2_format, fisheye_fourcc_to_rs2_stream), _owner(owner)
         {}
 
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override
@@ -420,26 +432,6 @@ namespace librealsense
 
         // Add fisheye endpoint
         _fisheye_device_idx = add_sensor(fisheye_ep);
-
-        // Not applicable for TM1
-        //_depth_to_fisheye = std::make_shared<lazy<rs2_extrinsics>>([this]()
-        //{
-        //    auto extr = get_fisheye_extrinsics_data(*_fisheye_extrinsics_raw);
-        //    return from_pose(inverse(extr));
-        //});
-
-        //_fisheye_to_imu = std::make_shared<lazy<rs2_extrinsics>>([this]()
-        //{
-        //    auto fe_calib = (*_tm1_eeprom).calibration_table.calib_model.fe_calibration;
-
-        //    auto rot = fe_calib.fisheye_to_imu.rotation;
-        //    auto trans = fe_calib.fisheye_to_imu.translation;
-
-        //    pose ex = { { rot(0,0), rot(1,0),rot(2,0),rot(0,1), rot(1,1),rot(2,1),rot(0,2), rot(1,2),rot(2,2) },
-        //    { trans[0], trans[1], trans[2] } };
-
-        //    return from_pose(ex);
-        //});
     }
 
     mm_calib_handler::mm_calib_handler(std::shared_ptr<hw_monitor> hw_monitor, ds::d400_caps dev_cap) :

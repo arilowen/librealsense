@@ -1,12 +1,17 @@
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2018 Intel Corporation. All Rights Reserved.
 
-#include <vector>
 #include "l500-device.h"
+
+#include <vector>
+
 #include "context.h"
 #include "stream.h"
+#include "image.h"
+
 #include "l500-depth.h"
 #include "l500-private.h"
+
 #include "proc/decimation-filter.h"
 #include "proc/threshold.h" 
 #include "proc/spatial-filter.h"
@@ -19,6 +24,18 @@
 
 namespace librealsense
 {
+    std::map<uint32_t, rs2_format> l500_depth_fourcc_to_rs2_format = {
+        { rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8 },
+        { rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16 },
+        { rs_fourcc('C',' ',' ',' '), RS2_FORMAT_RAW8 },
+    };
+
+    std::map<uint32_t, rs2_stream> l500_depth_fourcc_to_rs2_stream = {
+        {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
+        {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
+        {rs_fourcc('C',' ',' ',' '), RS2_STREAM_CONFIDENCE}
+    };
+
     using namespace ivcam2;
 
     l500_device::l500_device(std::shared_ptr<context> ctx,
@@ -109,7 +126,7 @@ namespace librealsense
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(timestamp_reader_metadata), _tf_keeper, enable_global_time_option)), this);
         raw_depth_ep->register_xu(depth_xu);
 
-        auto depth_ep = std::make_shared<l500_depth_sensor>(this, raw_depth_ep);
+        auto depth_ep = std::make_shared<l500_depth_sensor>(this, raw_depth_ep, l500_depth_fourcc_to_rs2_format, l500_depth_fourcc_to_rs2_stream);
         depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         depth_ep->register_option(RS2_OPTION_VISUAL_PRESET,
             std::make_shared<uvc_xu_option<int>>(

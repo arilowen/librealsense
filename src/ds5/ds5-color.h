@@ -4,6 +4,9 @@
 #pragma once
 
 #include "ds5-device.h"
+
+#include <map>
+
 #include "stream.h"
 
 namespace librealsense
@@ -37,8 +40,11 @@ namespace librealsense
     {
     public:
         explicit ds5_color_sensor(ds5_color* owner,
-            std::shared_ptr<uvc_sensor> uvc_sensor)
-            : synthetic_sensor("RGB Sensor", uvc_sensor, owner), _owner(owner)
+            std::shared_ptr<uvc_sensor> uvc_sensor,
+            std::map<uint32_t, rs2_format> ds5_color_fourcc_to_rs2_format,
+            std::map<uint32_t, rs2_stream> ds5_color_fourcc_to_rs2_stream)
+            : synthetic_sensor("RGB Sensor", uvc_sensor, owner, ds5_color_fourcc_to_rs2_format, ds5_color_fourcc_to_rs2_stream),
+            _owner(owner)
         {}
 
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override;

@@ -4,14 +4,6 @@
 #pragma once
 
 #include "backend.h"
-#include "archive.h"
-
-#include "core/streaming.h"
-#include "core/roi.h"
-#include "core/options.h"
-#include "source.h"
-#include "core/extension.h"
-#include "proc/processing-blocks-factory.h"
 
 #include <chrono>
 #include <memory>
@@ -21,6 +13,14 @@
 #include <atomic>
 #include <functional>
 #include <core/debug.h>
+
+#include "archive.h"
+#include "core/streaming.h"
+#include "core/roi.h"
+#include "core/options.h"
+#include "source.h"
+#include "core/extension.h"
+#include "proc/processing-blocks-factory.h"
 
 namespace librealsense
 {
@@ -60,7 +60,7 @@ namespace librealsense
         virtual frame_callback_ptr get_frames_callback() const override;
         virtual void set_frames_callback(frame_callback_ptr callback) override;
         bool is_streaming() const override;
-        void register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const;
+        virtual void register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const;
         void register_on_open(on_open callback)
         {
             _on_open = callback;
@@ -78,6 +78,9 @@ namespace librealsense
         {
             return {};
         }
+
+        std::shared_ptr<std::map<uint32_t, rs2_format>>& get_fourcc_to_rs2_format_map();
+        std::shared_ptr<std::map<uint32_t, rs2_stream>>& get_fourcc_to_rs2_stream_map();
 
     protected:
         void raise_on_before_streaming_changes(bool streaming);
@@ -106,6 +109,9 @@ namespace librealsense
         device* _owner;
         std::vector<platform::stream_profile> _uvc_profiles;
 
+        std::shared_ptr<std::map<uint32_t, rs2_format>> _fourcc_to_rs2_format;
+        std::shared_ptr<std::map<uint32_t, rs2_stream>> _fourcc_to_rs2_stream;
+
     private:
         lazy<stream_profiles> _profiles;
         stream_profiles _active_profiles;
@@ -121,7 +127,9 @@ namespace librealsense
     public:
         explicit synthetic_sensor(std::string name,
             std::shared_ptr<sensor_base> sensor,
-            device* device);
+            device* device,
+            std::map<uint32_t, rs2_format> fourcc_to_rs2_format_map = std::map<uint32_t, rs2_format>(),
+            std::map<uint32_t, rs2_stream> fourcc_to_rs2_stream_map = std::map<uint32_t, rs2_stream>());
         ~synthetic_sensor() override;
 
         void register_option(rs2_option id, std::shared_ptr<option> option);
@@ -146,17 +154,19 @@ namespace librealsense
         notifications_callback_ptr get_notifications_callback() const override;
         void register_notifications_callback(notifications_callback_ptr callback) override;
         stream_profiles get_active_streams() const override;
+        void register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const override;
         bool is_streaming() const override;
 
     private:
         stream_profiles resolve_requests(const stream_profiles& requests);
-        std::shared_ptr<stream_profile_interface> filter_frame_by_requests(frame_interface* f);
+        std::shared_ptr<stream_profile_interface> filter_frame_by_requests(const frame_interface* f);
         void sort_profiles(stream_profiles * profiles);
         std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> find_requests_best_pb_match(const stream_profiles& sp);
         std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(const stream_profiles& requests);
         void add_source_profile_missing_data(std::shared_ptr<stream_profile_interface>& source_profile);
         bool is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles);
         std::shared_ptr<stream_profile_interface> clone_profile(const std::shared_ptr<stream_profile_interface>& profile);
+        void register_processing_block_options(const processing_block& pb);
 
         std::mutex _synthetic_configure_lock;
 
@@ -267,7 +277,6 @@ namespace librealsense
 
     protected:
         stream_profiles init_stream_profiles() override;
-
         rs2_extension stream_to_frame_types(rs2_stream stream) const;
 
     private:
@@ -303,29 +312,6 @@ namespace librealsense
             }
         private:
             std::weak_ptr<uvc_sensor> _owner;
-        };
-
-        std::map<uint32_t, rs2_format> _fourcc_to_rs2_format = {
-            {rs_fourcc('Y','U','Y','2'), RS2_FORMAT_YUYV},
-            {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
-            {rs_fourcc('M','J','P','G'), RS2_FORMAT_MJPEG},
-            {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
-            {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
-            {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
-            {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
-            {rs_fourcc('C',' ',' ',' '), RS2_FORMAT_RAW8},
-            {rs_fourcc('B','Y','R','2'), RS2_FORMAT_RAW16}
-        };
-        std::map<uint32_t, rs2_stream> _fourcc_to_rs2_stream = {
-            {rs_fourcc('Y','U','Y','2'), RS2_STREAM_COLOR},
-            {rs_fourcc('U','Y','V','Y'), RS2_STREAM_COLOR},
-            {rs_fourcc('B','Y','R','2'), RS2_STREAM_COLOR},
-            {rs_fourcc('M','J','P','G'), RS2_STREAM_COLOR},
-            {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
-            {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
-            {rs_fourcc('C',' ',' ',' '), RS2_STREAM_CONFIDENCE},
         };
 
         std::shared_ptr<platform::uvc_device> _device;

@@ -39,11 +39,11 @@ namespace librealsense
         return generate_processing_block();
     }
 
-    processing_block_factory processing_block_factory::create_id_pbf(rs2_format format, rs2_stream stream)
+    processing_block_factory processing_block_factory::create_id_pbf(rs2_format format, rs2_stream stream, int idx)
     {
         processing_block_factory id_pbf = {
             { {format} },
-            { {format, stream} },
+            { {format, stream, idx} },
             []() { return std::make_shared<identity_processing_block>(); }
         };
         return id_pbf;
