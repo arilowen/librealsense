@@ -31,6 +31,7 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/units-transform.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/rotation-transform.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/color-formats-converter.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/depth-formats-converter.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/motion-transform.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/processing-blocks-factory.h"
@@ -54,5 +55,6 @@ target_sources(${LRS_TARGET}
         "${CMAKE_CURRENT_LIST_DIR}/units-transform.h"
         "${CMAKE_CURRENT_LIST_DIR}/rotation-transform.h"
 	"${CMAKE_CURRENT_LIST_DIR}/color-formats-converter.h"
+	"${CMAKE_CURRENT_LIST_DIR}/depth-formats-converter.h"
 	"${CMAKE_CURRENT_LIST_DIR}/motion-transform.h"
 )

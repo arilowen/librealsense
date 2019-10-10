@@ -84,6 +84,8 @@ namespace librealsense
         case RS2_FORMAT_MJPEG: return 8;
         case RS2_FORMAT_Y8I: return 16;
         case RS2_FORMAT_Y12I: return 24;
+        case RS2_FORMAT_INZI: return 32;
+        case RS2_FORMAT_INVI: return 16;
         default: assert(false); return 0;
         }
     }
@@ -281,6 +283,22 @@ namespace librealsense
             ++to;
         }
 #endif
+    }
+
+    void unpack_invi(rs2_format dst_format, rs2_stream dst_stream, byte * const d[], const byte * s, int width, int height, int actual_size)
+    {
+        switch (dst_format)
+        {
+        case RS2_FORMAT_Y8:
+            unpack_y8_from_y16_10(d, s, width, height, actual_size);
+            break;
+        case RS2_FORMAT_Y16:
+            unpack_y16_from_y16_10(d, s, width, height, actual_size);
+            break;
+        default:
+            LOG_ERROR("Unsupported format for INVI conversion.");
+            break;
+        }
     }
 
     // Unpack luminocity 8 bit from 10-bit packed macro-pixels (4 pixels in 5 bytes):
@@ -929,7 +947,7 @@ namespace librealsense
     }
 
     struct y8i_pixel { uint8_t l, r; };
-    void unpack_y8_y8_from_y8i(rs2_format target_format, rs2_stream target_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_y8_y8_from_y8i(rs2_format dst_left_format, rs2_stream dst_left_stream, rs2_format dst_right_format, rs2_stream dst_right_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         auto count = width * height;
 #ifdef RS2_USE_CUDA
@@ -942,7 +960,7 @@ namespace librealsense
     }
 
     struct y12i_pixel { uint8_t rl : 8, rh : 4, ll : 4, lh : 8; int l() const { return lh << 4 | ll; } int r() const { return rh << 8 | rl; } };
-    void unpack_y16_y16_from_y12i_10(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_y16_y16_from_y12i_10(rs2_format dst_left_format, rs2_stream dst_left_stream, rs2_format dst_right_format, rs2_stream dst_right_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         auto count = width * height;
 #ifdef RS2_USE_CUDA
@@ -984,7 +1002,7 @@ namespace librealsense
         librealsense::copy(dest[0], in, count * 2);
     }
 
-    void unpack_z16_y16_from_sr300_inzi (byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_z16_y16_from_sr300_inzi(byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         auto count = width * height;
         auto in = reinterpret_cast<const uint16_t*>(source);
@@ -995,6 +1013,23 @@ namespace librealsense
         for (int i = 0; i < count; ++i) *out_ir++ = *in++ << 6;
 #endif
         librealsense::copy(dest[0], in, count * 2);
+    }
+
+    void unpack_inzi(rs2_format dst_left_format, rs2_stream dst_left_stream, rs2_format dst_right_format, rs2_stream dst_right_stream, byte * const d[], const byte * s, int width, int height, int actual_size)
+    {
+        // convension: right frame is IR and left is Z16
+        switch (dst_right_format)
+        {
+        case RS2_FORMAT_Y8:
+            unpack_z16_y8_from_sr300_inzi(d, s, width, height, actual_size);
+            break;
+        case RS2_FORMAT_Y16:
+            unpack_z16_y16_from_sr300_inzi(d, s, width, height, actual_size);
+            break;
+        default:
+            LOG_ERROR("Unsupported format for INZI conversion.");
+            break;
+        }
     }
 
     void unpack_rgb_from_bgr(byte * const dest[], const byte * source, int width, int height, int actual_size)

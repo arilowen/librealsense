@@ -530,6 +530,24 @@ namespace librealsense
         // This will trigger processing the frame in a chain by the order of the given processing blocks vector.
         _processing_blocks.front()->invoke(std::move(frames));
     }
-    interleaved_functional_processing_block::interleaved_functional_processing_block(const char * name, rs2_format source_format, rs2_format target_format, rs2_stream target_stream, rs2_extension extension_type, int left_idx, int right_idx)
-        : processing_block(name), _source_format(source_format), _target_format(target_format), _target_stream(target_stream), _extension_type(extension_type), _left_target_profile_idx(left_idx), _right_target_profile_idx(right_idx) {}
+    interleaved_functional_processing_block::interleaved_functional_processing_block(const char* name,
+        rs2_format source_format,
+        rs2_format left_target_format,
+        rs2_stream left_target_stream,
+        rs2_extension left_extension_type,
+        int left_idx,
+        rs2_format right_target_format,
+        rs2_stream right_target_stream,
+        rs2_extension right_extension_type,
+        int right_idx)
+        :   processing_block(name),
+            _source_format(source_format),
+            _left_target_format(left_target_format),
+            _left_target_stream(left_target_stream),
+            _left_extension_type(left_extension_type),
+            _left_target_profile_idx(left_idx),
+            _right_target_format(right_target_format),
+            _right_target_stream(right_target_stream),
+            _right_extension_type(right_extension_type),
+            _right_target_profile_idx(right_idx) {}
 }

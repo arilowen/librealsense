@@ -13,7 +13,8 @@ namespace librealsense
         y8i_to_y8y8("Y8i to Y8-Y8 Converter", left_idx, right_idx) {}
 
     y8i_to_y8y8::y8i_to_y8y8(const char * name, int left_idx, int right_idx)
-        : interleaved_functional_processing_block(name, RS2_FORMAT_Y8I, RS2_FORMAT_Y8, RS2_STREAM_INFRARED, RS2_EXTENSION_VIDEO_FRAME, 1, 2)
+        : interleaved_functional_processing_block(name, RS2_FORMAT_Y8I, RS2_FORMAT_Y8, RS2_STREAM_INFRARED, RS2_EXTENSION_VIDEO_FRAME, 1,
+                                                                        RS2_FORMAT_Y8, RS2_STREAM_INFRARED, RS2_EXTENSION_VIDEO_FRAME, 2)
     {
         configure_processing_callback(unpack_y8_y8_from_y8i);
     }

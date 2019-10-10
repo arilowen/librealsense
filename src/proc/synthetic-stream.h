@@ -140,6 +140,7 @@ namespace librealsense
         bool should_process(const rs2::frame& frame) override;
     };
 
+    // process frames with a given function
     class functional_processing_block : public stream_filter_processing_block
     {
     public:
@@ -177,17 +178,20 @@ namespace librealsense
         int _target_bpp = 0;
     };
 
-    // handles interleaved frames with a defined function
+    // process interleaved frames with a given function
     class interleaved_functional_processing_block : public processing_block
     {
     public:
         interleaved_functional_processing_block(const char* name,
             rs2_format source_format,
-            rs2_format target_format,
-            rs2_stream target_stream = RS2_STREAM_ANY,
-            rs2_extension extension_type = RS2_EXTENSION_VIDEO_FRAME,
-            int left_idx = 1,
-            int right_idx = 2);
+            rs2_format left_target_format,
+            rs2_stream left_target_stream,
+            rs2_extension left_extension_type,
+            int left_idx,
+            rs2_format right_target_format,
+            rs2_stream right_target_stream,
+            rs2_extension right_extension_type,
+            int right_idx);
 
     protected:
         template<typename F>
@@ -196,26 +200,33 @@ namespace librealsense
             // define and set the frame processing callback
             auto process_callback = [&, process](frame_holder frame, synthetic_source_interface* source)
             {
-                auto profile = As<video_stream_profile, stream_profile_interface>(frame.frame->get_stream());
+                auto profile = As<librealsense::video_stream_profile, stream_profile_interface>(frame.frame->get_stream());
+                if (!profile)
+                {
+                    LOG_ERROR("Failed configuring interleaved funcitonal processing block: ", get_info(RS2_CAMERA_INFO_NAME));
+                    return;
+                }
+
                 auto w = profile->get_width();
                 auto h = profile->get_height();
 
                 if (profile.get() != _source_stream_profile.get())
                 {
                     _source_stream_profile = profile;
-                    _target_stream_profile_right = profile->clone();
-                    _target_stream_profile_left = profile->clone();
+                    _right_target_stream_profile = profile->clone();
+                    _left_target_stream_profile = profile->clone();
 
-                    _target_bpp = get_image_bpp(_target_format) / 8;
+                    _left_target_bpp = get_image_bpp(_left_target_format) / 8;
+                    _right_target_bpp = get_image_bpp(_right_target_format) / 8;
 
-                    _target_stream_profile_left->set_format(_target_format);
-                    _target_stream_profile_right->set_format(_target_format);
-                    _target_stream_profile_left->set_stream_type(profile->get_stream_type());
-                    _target_stream_profile_right->set_stream_type(profile->get_stream_type());
-                    _target_stream_profile_left->set_stream_index(_left_target_profile_idx);
-                    _target_stream_profile_left->set_unique_id(_left_target_profile_idx);
-                    _target_stream_profile_right->set_stream_index(_right_target_profile_idx);
-                    _target_stream_profile_right->set_unique_id(_right_target_profile_idx);
+                    _left_target_stream_profile->set_format(_left_target_format);
+                    _right_target_stream_profile->set_format(_right_target_format);
+                    _left_target_stream_profile->set_stream_type(_left_target_stream);
+                    _right_target_stream_profile->set_stream_type(_right_target_stream);
+                    _left_target_stream_profile->set_stream_index(_left_target_profile_idx);
+                    _left_target_stream_profile->set_unique_id(_left_target_profile_idx);
+                    _right_target_stream_profile->set_stream_index(_right_target_profile_idx);
+                    _right_target_stream_profile->set_unique_id(_right_target_profile_idx);
                 }
 
                 // passthrough the frame if we don't need to process it.
@@ -228,16 +239,19 @@ namespace librealsense
 
                 frame_holder lf, rf;
 
-                lf = source->allocate_video_frame(_target_stream_profile_left, frame, _target_bpp,
-                    w, h, w * _target_bpp, _extension_type);
-                rf = source->allocate_video_frame(_target_stream_profile_right, frame, _target_bpp,
-                    w, h, w * _target_bpp, _extension_type);
+                lf = source->allocate_video_frame(_left_target_stream_profile, frame, _left_target_bpp,
+                    w, h, w * _left_target_bpp, _left_extension_type);
+                rf = source->allocate_video_frame(_right_target_stream_profile, frame, _right_target_bpp,
+                    w, h, w * _right_target_bpp, _right_extension_type);
 
                 // process the frame
                 byte* planes[2];
                 planes[0] = (byte*)lf.frame->get_frame_data();
                 planes[1] = (byte*)rf.frame->get_frame_data();
-                process(_target_format, _target_stream, planes, (const byte*)frame->get_frame_data(), w, h, 0);
+
+                process(_left_target_format, _left_target_stream,
+                    _right_target_format, _right_target_stream,
+                    planes, (const byte*)frame->get_frame_data(), w, h, 0);
 
                 source->frame_ready(std::move(lf));
                 source->frame_ready(std::move(rf));
@@ -248,13 +262,17 @@ namespace librealsense
         };
 
         std::shared_ptr<stream_profile_interface> _source_stream_profile;
-        std::shared_ptr<stream_profile_interface> _target_stream_profile_left;
-        std::shared_ptr<stream_profile_interface> _target_stream_profile_right;
+        std::shared_ptr<stream_profile_interface> _left_target_stream_profile;
+        std::shared_ptr<stream_profile_interface> _right_target_stream_profile;
         rs2_format _source_format;
-        rs2_format _target_format;
-        rs2_stream _target_stream;
-        rs2_extension _extension_type;
-        int _target_bpp = 0;
+        rs2_format _left_target_format;
+        rs2_stream _left_target_stream;
+        rs2_extension _left_extension_type;
+        rs2_format _right_target_format;
+        rs2_stream _right_target_stream;
+        rs2_extension _right_extension_type;
+        int _left_target_bpp = 0;
+        int _right_target_bpp = 0;
         int _left_target_profile_idx = 1;
         int _right_target_profile_idx = 2;
     };

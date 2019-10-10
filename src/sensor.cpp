@@ -1014,8 +1014,8 @@ namespace librealsense
     synthetic_sensor::synthetic_sensor(std::string name,
         std::shared_ptr<sensor_base> sensor,
         device* device,
-        std::map<uint32_t, rs2_format> fourcc_to_rs2_format_map,
-        std::map<uint32_t, rs2_stream> fourcc_to_rs2_stream_map)
+        const std::map<uint32_t, rs2_format>& fourcc_to_rs2_format_map,
+        const std::map<uint32_t, rs2_stream>& fourcc_to_rs2_stream_map)
         : sensor_base(name, device, (recommended_proccesing_blocks_interface*)this), _raw_sensor(std::move(sensor))
     {
         // synthetic sensor and its raw sensor will share the formats and streams mapping
