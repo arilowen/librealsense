@@ -29,6 +29,7 @@
 #include "proc/colorizer.h"
 #include "proc/temporal-filter.h"
 #include "proc/y8i-to-y8y8.h"
+#include "proc/y12i-to-y16y16.h"
 #include "proc/syncer-processing-block.h"
 #include "proc/hole-filling-filter.h"
 #include "../common/fw/firmware-version.h"
@@ -40,12 +41,14 @@ namespace librealsense
         {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
         {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
         {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
+        {rs_fourcc('Y','1','2','I'), RS2_FORMAT_Y12I},
         {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16}
     };
     std::map<uint32_t, rs2_stream> ds5_depth_fourcc_to_rs2_stream = {
         {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
         {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
         {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
+        {rs_fourcc('Y','1','2','I'), RS2_STREAM_INFRARED},
         {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
     };
 
@@ -560,8 +563,8 @@ namespace librealsense
         depth_ep->register_processing_block(
             { {RS2_FORMAT_Y8I} },
             { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
-            []() { return std::make_shared<y8i_to_y8y8>(); 
-        });
+            []() { return std::make_shared<y8i_to_y8y8>(); }
+        ); // L+R
         depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1));
         depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Z16, RS2_STREAM_DEPTH));
 
@@ -660,8 +663,11 @@ namespace librealsense
 
         if (advanced_mode && (_usb_mode >= usb3_type))
         {
-            raw_depth_sensor.register_pixel_format(pf_y8i); // L+R
-            raw_depth_sensor.register_pixel_format(pf_y12i); // L+R - Calibration not rectified
+            depth_sensor.register_processing_block(
+                {RS2_FORMAT_Y12I},
+                {{RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 1}, {RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 2}},
+                []() {return std::make_shared<y12i_to_y16y16>(); }
+            );
         }
 
         auto pid_hex_str = hexify(pid);
@@ -937,8 +943,9 @@ namespace librealsense
 
         if (!is_camera_in_advanced_mode())
         {
-            depth_ep.remove_pixel_format(pf_y8i); // L+R
-            depth_ep.remove_pixel_format(pf_y12i); // L+R
+            // TODO - Ariel - Fix the formats
+            //depth_ep.remove_pixel_format(pf_y8i); // L+R
+            //depth_ep.remove_pixel_format(pf_y12i); // L+R
         }
 
         // Inhibit specific unresolved options

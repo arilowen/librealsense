@@ -139,34 +139,33 @@ namespace librealsense
         depth_ep->register_processing_block(
             { {RS2_FORMAT_Y8} },
             { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1, 0, 0, 0, &rotate_resolution} },
-            []() {
-            return std::make_shared<ir_rotation_transform>();
-        });
+            []() { return std::make_shared<ir_rotation_transform>(); }
+        );
 
         depth_ep->register_processing_block(
             { {RS2_FORMAT_RAW8} },
             { {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution} },
-            []() {
-            return std::make_shared<confidence_rotation_transform>();
-        });
+            []() { return std::make_shared<confidence_rotation_transform>(); }
+        );
 
         depth_ep->register_processing_block(
             { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8} },
             { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution} },
             []() {
-            auto z16rot = std::make_shared<depth_rotation_transform>();
-            auto y8rot = std::make_shared<ir_rotation_transform>();
-            auto sync = std::make_shared<syncer_process_unit>();
-            auto zo = std::make_shared<zero_order>();
+                auto z16rot = std::make_shared<depth_rotation_transform>();
+                auto y8rot = std::make_shared<ir_rotation_transform>();
+                auto sync = std::make_shared<syncer_process_unit>();
+                auto zo = std::make_shared<zero_order>();
 
-            auto cpb = std::make_shared<composite_processing_block>();
-            cpb->add(z16rot);
-            cpb->add(y8rot);
-            cpb->add(sync);
-            cpb->add(zo);
+                auto cpb = std::make_shared<composite_processing_block>();
+                cpb->add(z16rot);
+                cpb->add(y8rot);
+                cpb->add(sync);
+                cpb->add(zo);
 
-            return cpb;
-        });
+                return cpb;
+            }
+        );
 
         depth_ep->register_processing_block(
             { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8}, {RS2_FORMAT_RAW8} },
@@ -175,21 +174,22 @@ namespace librealsense
                 {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution}
             },
             []() {
-            auto z16rot = std::make_shared<depth_rotation_transform>();
-            auto y8rot = std::make_shared<ir_rotation_transform>();
-            auto conf = std::make_shared<confidence_rotation_transform>();
-            auto sync = std::make_shared<syncer_process_unit>();
-            auto zo = std::make_shared<zero_order>();
+                auto z16rot = std::make_shared<depth_rotation_transform>();
+                auto y8rot = std::make_shared<ir_rotation_transform>();
+                auto conf = std::make_shared<confidence_rotation_transform>();
+                auto sync = std::make_shared<syncer_process_unit>();
+                auto zo = std::make_shared<zero_order>();
 
-            auto cpb = std::make_shared<composite_processing_block>();
-            cpb->add(z16rot);
-            cpb->add(y8rot);
-            cpb->add(conf);
-            cpb->add(sync);
-            cpb->add(zo);
+                auto cpb = std::make_shared<composite_processing_block>();
+                cpb->add(z16rot);
+                cpb->add(y8rot);
+                cpb->add(conf);
+                cpb->add(sync);
+                cpb->add(zo);
 
-            return cpb;
-        });
+                return cpb;
+            }
+        );
 
         return depth_ep;
     }

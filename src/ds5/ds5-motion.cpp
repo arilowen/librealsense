@@ -109,7 +109,8 @@ namespace librealsense
         explicit ds5_fisheye_sensor(std::shared_ptr<sensor_base> sensor,
             device* device,
             ds5_motion* owner)
-            : synthetic_sensor("Wide FOV Camera", sensor, device, fisheye_fourcc_to_rs2_format, fisheye_fourcc_to_rs2_stream), _owner(owner)
+            : synthetic_sensor("Wide FOV Camera", sensor, device, fisheye_fourcc_to_rs2_format, fisheye_fourcc_to_rs2_stream),
+            _owner(owner)
         {}
 
         rs2_intrinsics get_intrinsics(const stream_profile& profile) const override
@@ -221,13 +222,13 @@ namespace librealsense
         hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
-            [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, _mm_calib.get(), enable_motion_correction);
+            [&, enable_motion_correction]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL, _mm_calib.get(), enable_motion_correction);
         });
 
         hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
-            [=]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO, _mm_calib.get(), enable_motion_correction);
+            [&, enable_motion_correction]() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO, _mm_calib.get(), enable_motion_correction);
         });
 
         uint16_t pid = static_cast<uint16_t>(strtoul(all_hid_infos.front().pid.data(), nullptr, 16));
@@ -373,8 +374,9 @@ namespace librealsense
         raw_fisheye_ep->register_xu(fisheye_xu); // make sure the XU is initialized everytime we power the camera
 
         // TODO - Ariel - Add support for fisheye formats
-        fisheye_ep->register_pixel_format(pf_raw8);
-        fisheye_ep->register_pixel_format(pf_fe_raw8_unpatched_kernel); // W/O for unpatched kernel
+        //fisheye_ep->register_pixel_format(pf_raw8);
+        //fisheye_ep->register_pixel_format(pf_fe_raw8_unpatched_kernel); // W/O for unpatched kernel
+        fisheye_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_RAW8, RS2_STREAM_FISHEYE));
 
         if (_fw_version >= firmware_version("5.6.3.0")) // Create Auto Exposure controls from FW version 5.6.3.0
         {

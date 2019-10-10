@@ -530,4 +530,6 @@ namespace librealsense
         // This will trigger processing the frame in a chain by the order of the given processing blocks vector.
         _processing_blocks.front()->invoke(std::move(frames));
     }
+    interleaved_functional_processing_block::interleaved_functional_processing_block(const char * name, rs2_format source_format, rs2_format target_format, rs2_stream target_stream, rs2_extension extension_type, int left_idx, int right_idx)
+        : processing_block(name), _source_format(source_format), _target_format(target_format), _target_stream(target_stream), _extension_type(extension_type), _left_target_profile_idx(left_idx), _right_target_profile_idx(right_idx) {}
 }

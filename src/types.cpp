@@ -320,6 +320,7 @@ namespace librealsense
             CASE(DISTANCE)
             CASE(MJPEG)
             CASE(Y8I)
+            CASE(Y12I)
             CASE(INZI)
             CASE(INVI)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;

@@ -83,6 +83,7 @@ namespace librealsense
         case RS2_FORMAT_6DOF: return 1;
         case RS2_FORMAT_MJPEG: return 8;
         case RS2_FORMAT_Y8I: return 16;
+        case RS2_FORMAT_Y12I: return 24;
         default: assert(false); return 0;
         }
     }
@@ -928,7 +929,7 @@ namespace librealsense
     }
 
     struct y8i_pixel { uint8_t l, r; };
-    void unpack_y8_y8_from_y8i(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_y8_y8_from_y8i(rs2_format target_format, rs2_stream target_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         auto count = width * height;
 #ifdef RS2_USE_CUDA
@@ -941,7 +942,7 @@ namespace librealsense
     }
 
     struct y12i_pixel { uint8_t rl : 8, rh : 4, ll : 4, lh : 8; int l() const { return lh << 4 | ll; } int r() const { return rh << 8 | rl; } };
-    void unpack_y16_y16_from_y12i_10(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    void unpack_y16_y16_from_y12i_10(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
     {
         auto count = width * height;
 #ifdef RS2_USE_CUDA
@@ -1144,10 +1145,10 @@ namespace librealsense
                                                                                                    { requires_processing, &copy_pixels<1>,                               { { RS2_STREAM_INFRARED,       RS2_FORMAT_Y8 } } } } };
     const native_pixel_format pf_y8                       = { rs_fourcc('G','R','E','Y'), 1, 1, {  { requires_processing, &copy_pixels<1>,                             { { { RS2_STREAM_INFRARED, 1 },  RS2_FORMAT_Y8  } } } } };
     const native_pixel_format pf_y16                      = { rs_fourcc('Y','1','6',' '), 1, 2, {  { true,                &unpack_y16_from_y16_10,                     { { { RS2_STREAM_INFRARED, 1 },  RS2_FORMAT_Y16 } } } } };
-    const native_pixel_format pf_y8i                      = { rs_fourcc('Y','8','I',' '), 1, 2, {  { true,                &unpack_y8_y8_from_y8i,                      { { { RS2_STREAM_INFRARED, 1 },  RS2_FORMAT_Y8  },
-                                                                                                                                                     { { RS2_STREAM_INFRARED, 2 },  RS2_FORMAT_Y8 } } } } };
-    const native_pixel_format pf_y12i                     = { rs_fourcc('Y','1','2','I'), 1, 3, {  { true,                &unpack_y16_y16_from_y12i_10,                { { { RS2_STREAM_INFRARED, 1 },  RS2_FORMAT_Y16 },
-                                                                                                                                                     { { RS2_STREAM_INFRARED, 2 },  RS2_FORMAT_Y16 } } } } };
+    /*const native_pixel_format pf_y8i                      = { rs_fourcc('Y','8','I',' '), 1, 2, {  { true,                &unpack_y8_y8_from_y8i,                      { { { RS2_STREAM_INFRARED, 1 },  RS2_FORMAT_Y8  },
+                                                                                                                                                     { { RS2_STREAM_INFRARED, 2 },  RS2_FORMAT_Y8 } } } } };*/
+    /*const native_pixel_format pf_y12i                     = { rs_fourcc('Y','1','2','I'), 1, 3, {  { true,                &unpack_y16_y16_from_y12i_10,                { { { RS2_STREAM_INFRARED, 1 },  RS2_FORMAT_Y16 },
+                                                                                                                                                     { { RS2_STREAM_INFRARED, 2 },  RS2_FORMAT_Y16 } } } } };*/
     const native_pixel_format pf_z16                      = { rs_fourcc('Z','1','6',' '), 1, 2, {  { requires_processing, &copy_pixels<2>,                               { { RS2_STREAM_DEPTH,          RS2_FORMAT_Z16 } } },
         // The Disparity_Z is not applicable for D4XX. TODO - merge with INVZ when confirmed
         /*{ false, &copy_pixels<2>,                                { { RS2_STREAM_DEPTH,    RS2_FORMAT_DISPARITY16 } } }*/ } };

@@ -6,8 +6,6 @@
 #include "synthetic-stream.h"
 #include "option.h"
 #include "image.h"
-#include "../include/librealsense2/hpp/rs_sensor.hpp"
-#include "../include/librealsense2/hpp/rs_processing.hpp"
 
 namespace librealsense
 {
@@ -19,8 +17,7 @@ namespace librealsense
 
     protected:
         color_converter(const char* name, rs2_format target_format) :
-            functional_processing_block(name, target_format, RS2_STREAM_COLOR, RS2_EXTENSION_VIDEO_FRAME)
-        {};
+            functional_processing_block(name, target_format, RS2_STREAM_COLOR, RS2_EXTENSION_VIDEO_FRAME) {};
     };
 
     class yuy2_converter : public color_converter
