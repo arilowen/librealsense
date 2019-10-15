@@ -86,6 +86,7 @@ namespace librealsense
         case RS2_FORMAT_Y12I: return 24;
         case RS2_FORMAT_INZI: return 32;
         case RS2_FORMAT_INVI: return 16;
+        case RS2_FORMAT_W10: return 32;
         default: assert(false); return 0;
         }
     }
@@ -243,6 +244,22 @@ namespace librealsense
             *to++ = ((from[2] << 2) | ((from[4] >> 4) & 3)) << 6;
             *to++ = ((from[3] << 2) | ((from[4] >> 6) & 3)) << 6;
          }
+    }
+
+    void unpack_w10(rs2_format dst_format, rs2_stream dst_stream, byte * const d[], const byte * s, int width, int height, int actual_size)
+    {
+        switch (dst_format)
+        {
+        case RS2_FORMAT_W10:
+            copy_raw10(d, s, width, height, actual_size);
+            break;
+        case RS2_FORMAT_Y10BPACK:
+            unpack_y10bpack(d, s, width, height, actual_size);
+            break;
+        default:
+            LOG_ERROR("Unsupported format for W10 unpacking.");
+            break;
+        }
     }
 
     template<class SOURCE, class UNPACK> void unpack_pixels(byte * const dest[], int count, const SOURCE * source, UNPACK unpack, int actual_size)

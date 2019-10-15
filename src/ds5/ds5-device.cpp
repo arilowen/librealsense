@@ -32,6 +32,7 @@
 #include "proc/y12i-to-y16y16.h"
 #include "proc/syncer-processing-block.h"
 #include "proc/hole-filling-filter.h"
+#include "proc/depth-formats-converter.h"
 #include "../common/fw/firmware-version.h"
 #include "fw-update/fw-update-unsigned.h"
 
@@ -40,6 +41,7 @@ namespace librealsense
     std::map<uint32_t, rs2_format> ds5_depth_fourcc_to_rs2_format = {
         {rs_fourcc('G','R','E','Y'), RS2_FORMAT_Y8},
         {rs_fourcc('Y','8','I',' '), RS2_FORMAT_Y8I},
+        {rs_fourcc('W','1','0',' '), RS2_FORMAT_W10},
         {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
         {rs_fourcc('Y','1','2','I'), RS2_FORMAT_Y12I},
         {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16}
@@ -47,6 +49,7 @@ namespace librealsense
     std::map<uint32_t, rs2_stream> ds5_depth_fourcc_to_rs2_stream = {
         {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
         {rs_fourcc('Y','8','I',' '), RS2_STREAM_INFRARED},
+        {rs_fourcc('W','1','0',' '), RS2_STREAM_INFRARED},
         {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
         {rs_fourcc('Y','1','2','I'), RS2_STREAM_INFRARED},
         {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
@@ -560,13 +563,11 @@ namespace librealsense
         auto depth_ep = std::make_shared<ds5_depth_sensor>(this, raw_depth_ep);
         depth_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
 
-        depth_ep->register_processing_block(
-            { {RS2_FORMAT_Y8I} },
-            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
-            []() { return std::make_shared<y8i_to_y8y8>(); }
-        ); // L+R
         depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1));
         depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Z16, RS2_STREAM_DEPTH));
+
+        depth_ep->register_processing_block({ {RS2_FORMAT_W10} }, { {RS2_FORMAT_RAW10, RS2_STREAM_INFRARED, 1} }, []() { return std::make_shared<w10_converter>(RS2_FORMAT_RAW10); });
+        depth_ep->register_processing_block({ {RS2_FORMAT_W10} }, { {RS2_FORMAT_Y10BPACK, RS2_STREAM_INFRARED, 1} }, []() { return std::make_shared<w10_converter>(RS2_FORMAT_Y10BPACK); });
 
         return depth_ep;
     }
@@ -663,6 +664,12 @@ namespace librealsense
 
         if (advanced_mode && (_usb_mode >= usb3_type))
         {
+            depth_sensor.register_processing_block(
+                { {RS2_FORMAT_Y8I} },
+                { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1} , {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 2} },
+                []() { return std::make_shared<y8i_to_y8y8>(); }
+            ); // L+R
+
             depth_sensor.register_processing_block(
                 {RS2_FORMAT_Y12I},
                 {{RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 1}, {RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 2}},
@@ -919,10 +926,10 @@ namespace librealsense
 
         raw_depth_ep->register_xu(depth_xu); // make sure the XU is initialized every time we power the camera
 
-        raw_depth_ep->register_pixel_format(pf_z16); // Depth
+        depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Z16, RS2_STREAM_DEPTH));
+        depth_ep->register_processing_block({ {RS2_FORMAT_W10} }, { {RS2_FORMAT_RAW10, RS2_STREAM_INFRARED, 1} }, []() { return std::make_shared<w10_converter>(RS2_FORMAT_RAW10); });
+        depth_ep->register_processing_block({ {RS2_FORMAT_W10} }, { {RS2_FORMAT_Y10BPACK, RS2_STREAM_INFRARED, 1} }, []() { return std::make_shared<w10_converter>(RS2_FORMAT_Y10BPACK); });
 
-        // Support DS5U-specific pixel format
-        raw_depth_ep->register_pixel_format(pf_w10); // TODO - Ariel - add support for DS5U
         raw_depth_ep->register_pixel_format(pf_uyvyl);
 
         return depth_ep;
@@ -940,13 +947,6 @@ namespace librealsense
         init(ctx, group);
 
         auto& depth_ep = get_depth_sensor();
-
-        if (!is_camera_in_advanced_mode())
-        {
-            // TODO - Ariel - Fix the formats
-            //depth_ep.remove_pixel_format(pf_y8i); // L+R
-            //depth_ep.remove_pixel_format(pf_y12i); // L+R
-        }
 
         // Inhibit specific unresolved options
         depth_ep.unregister_option(RS2_OPTION_OUTPUT_TRIGGER_ENABLED);

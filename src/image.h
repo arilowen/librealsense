@@ -16,26 +16,13 @@ namespace librealsense
     void unpack_bayer16(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_mjpeg(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_motion_axes(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
+    void unpack_w10(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_y16_y16_from_y12i_10(rs2_format dst_left_format, rs2_stream dst_left_stream, rs2_format dst_right_format, rs2_stream dst_right_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_invi(rs2_format dst_format, rs2_stream dst_stream, byte * const d[], const byte * s, int width, int height, int actual_size);
     void unpack_inzi(rs2_format dst_left_format, rs2_stream dst_left_stream, rs2_format dst_right_format, rs2_stream dst_right_stream, byte * const d[], const byte * s, int width, int height, int actual_size);
 
     size_t           get_image_size                 (int width, int height, rs2_format format);
     int              get_image_bpp                  (rs2_format format);
-    void             deproject_z                    (float * points, const rs2_intrinsics & z_intrin, const uint16_t * z_pixels, float z_scale);
-    void             deproject_disparity            (float * points, const rs2_intrinsics & disparity_intrin, const uint16_t * disparity_pixels, float disparity_scale);
-
-    void             align_z_to_other               (byte * z_aligned_to_other, const uint16_t * z_pixels, float z_scale, const rs2_intrinsics & z_intrin,
-                                                     const rs2_extrinsics & z_to_other, const rs2_intrinsics & other_intrin);
-    void             align_disparity_to_other       (byte * disparity_aligned_to_other, const uint16_t * disparity_pixels, float disparity_scale, const rs2_intrinsics & disparity_intrin,
-                                                     const rs2_extrinsics & disparity_to_other, const rs2_intrinsics & other_intrin);
-    void             align_other_to_z               (byte * other_aligned_to_z, const uint16_t * z_pixels, float z_scale, const rs2_intrinsics & z_intrin,
-                                                     const rs2_extrinsics & z_to_other, const rs2_intrinsics & other_intrin, const byte * other_pixels, rs2_format other_format);
-    void             align_other_to_disparity       (byte * other_aligned_to_disparity, const uint16_t * disparity_pixels, float disparity_scale, const rs2_intrinsics & disparity_intrin,
-                                                     const rs2_extrinsics & disparity_to_other, const rs2_intrinsics & other_intrin, const byte * other_pixels, rs2_format other_format);
-
-    std::vector<int> compute_rectification_table    (const rs2_intrinsics & rect_intrin, const rs2_extrinsics & rect_to_unrect, const rs2_intrinsics & unrect_intrin);
-    void             rectify_image                  (uint8_t * rect_pixels, const std::vector<int> & rectification_table, const uint8_t * unrect_pixels, rs2_format format);
 
     resolution rotate_resolution(resolution res);
     resolution l500_confidence_resolution(resolution res);

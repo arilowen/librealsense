@@ -529,15 +529,15 @@ namespace librealsense
 
         for (auto&& p : _uvc_profiles)
         {
-            auto fourcc_fmt = fourcc_to_rs2_format(p.format);
-            if (fourcc_fmt == RS2_FORMAT_ANY)
+            auto rs2_fmt = fourcc_to_rs2_format(p.format);
+            if (rs2_fmt == RS2_FORMAT_ANY)
                 continue;
 
             auto profile = std::make_shared<video_stream_profile>(p);
             profile->set_dims(p.width, p.height);
             profile->set_stream_type(fourcc_to_rs2_stream(p.format));
             profile->set_stream_index(0);
-            profile->set_format(fourcc_fmt);
+            profile->set_format(rs2_fmt);
             profile->set_framerate(p.fps);
             profiles.insert(profile);
         }
@@ -1093,7 +1093,7 @@ namespace librealsense
     bool synthetic_sensor::is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles)
     {
         // Check if the given profile (duplicate parameter) is already found in profiles list.
-
+        // TODO - Ariel - replace with any_of
         auto dup_iter = std::find_if(profiles.begin(), profiles.end(), [&duplicate](std::shared_ptr<stream_profile_interface> spi)
         {
             auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
@@ -1152,6 +1152,7 @@ namespace librealsense
 
                             // Add the cloned profile to the supported profiles by this processing block factory,
                             // for later processing validation in resolving the request.
+                            auto ap = profile->get_format();
                             pbf_supported_profiles[pbf.get()].push_back(cloned_profile);
 
                             // cache the source to target mapping

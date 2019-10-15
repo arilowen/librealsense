@@ -89,9 +89,10 @@ namespace librealsense
         stream_profiles satisfied_req;
         for (auto&& req : requests)
         {
-            if (std::find_if(begin(supported_profiles), end(supported_profiles), [&req](auto sp) {
-                return req == sp;
-            }) != end(supported_profiles))
+            auto equal_profiles_predicate = [&req](const std::shared_ptr<stream_profile_interface>& sp) {
+                return to_profile(req.get()) == to_profile(sp.get());
+            };
+            if (std::any_of(begin(supported_profiles), end(supported_profiles), equal_profiles_predicate))
                 satisfied_req.push_back(req);
         }
         return satisfied_req;

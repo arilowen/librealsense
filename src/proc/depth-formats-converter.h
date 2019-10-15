@@ -30,4 +30,16 @@ namespace librealsense
             functional_processing_block(name, target_format, RS2_STREAM_INFRARED, RS2_EXTENSION_VIDEO_FRAME) {};
         rs2::frame process_frame(const rs2::frame_source & source, const rs2::frame & f) override;
     };
+
+    class w10_converter : public functional_processing_block
+    {
+    public:
+        w10_converter(const rs2_format& target_format) :
+            w10_converter("W10 Transform", target_format) {};
+
+    protected:
+        w10_converter(const char* name, const rs2_format& target_format);
+
+        rs2::frame process_frame(const rs2::frame_source & source, const rs2::frame & f) override;
+    };
 }
