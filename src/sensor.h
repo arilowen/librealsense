@@ -167,6 +167,7 @@ namespace librealsense
         bool is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles);
         std::shared_ptr<stream_profile_interface> clone_profile(const std::shared_ptr<stream_profile_interface>& profile);
         void register_processing_block_options(const processing_block& pb);
+        void unregister_processing_block_options(const processing_block& pb);
 
         std::mutex _synthetic_configure_lock;
 
@@ -177,6 +178,7 @@ namespace librealsense
         std::unordered_map<std::shared_ptr<stream_profile_interface>, stream_profiles> _source_to_target_profiles_map;
         std::unordered_map<stream_profile, stream_profiles> _target_to_source_profiles_map;
         std::unordered_map<rs2_format, stream_profiles> cached_requests;
+        std::vector<rs2_option> cached_processing_blocks_options;
     };
 
     class iio_hid_timestamp_reader : public frame_timestamp_reader

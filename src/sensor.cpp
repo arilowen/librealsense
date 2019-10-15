@@ -1087,7 +1087,36 @@ namespace librealsense
 
     void synthetic_sensor::register_processing_block_options(const processing_block & pb)
     {
+        // Register the missing processing block's options to the sensor
+        const auto&& options = pb.get_supported_options();
 
+        for (auto&& opt : options)
+        {
+            const auto&& already_registered_predicate = [&opt](const rs2_option& o) {return o == opt; };
+            if (std::none_of(begin(options), end(options), already_registered_predicate))
+            {
+                this->register_option(opt, std::shared_ptr<option>(const_cast<option*>(&pb.get_option(opt))));
+                cached_processing_blocks_options.push_back(opt);
+            }
+        }
+    }
+
+    void synthetic_sensor::unregister_processing_block_options(const processing_block & pb)
+    {
+        const auto&& options = pb.get_supported_options();
+
+        // Unregister the cached options related to the processing blocks.
+        for (auto&& opt : options)
+        {
+            const auto&& cached_option_predicate = [&opt](const rs2_option& o) {return o == opt; };
+            auto&& cached_opt = std::find_if(begin(cached_processing_blocks_options), end(cached_processing_blocks_options), cached_option_predicate);
+
+            if (cached_opt != end(cached_processing_blocks_options))
+            {
+                this->unregister_option(*cached_opt);
+                cached_processing_blocks_options.erase(cached_opt);
+            }
+        }
     }
 
     bool synthetic_sensor::is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles)
@@ -1152,8 +1181,8 @@ namespace librealsense
 
                             // Add the cloned profile to the supported profiles by this processing block factory,
                             // for later processing validation in resolving the request.
-                            auto ap = profile->get_format();
                             pbf_supported_profiles[pbf.get()].push_back(cloned_profile);
+                            pbf_supported_profiles[pbf.get()].push_back(profile);
 
                             // cache the source to target mapping
                             _source_to_target_profiles_map[profile].push_back(cloned_profile);
@@ -1332,6 +1361,10 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
         _raw_sensor->close();
+        for (auto&& entry : _profiles_to_processing_block)
+        {
+            unregister_processing_block_options(*entry.second);
+        }
         _profiles_to_processing_block.erase(begin(_profiles_to_processing_block), end(_profiles_to_processing_block));
         cached_requests.erase(cached_requests.begin(), cached_requests.end());
     }

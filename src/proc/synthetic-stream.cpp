@@ -498,11 +498,10 @@ namespace librealsense
     {
         _processing_blocks.push_back(block);
 
-        for (int i = 0; i < RS2_OPTION_COUNT; i++)
+        const auto&& supported_options = block->get_supported_options();
+        for (auto&& opt : supported_options)
         {
-            auto opt = (rs2_option)i;
-            if (block->supports_option(opt))
-                register_option(opt, std::make_shared<bypass_option>(this, opt));
+            register_option(opt, std::make_shared<bypass_option>(this, opt));
         }
 
         update_info(RS2_CAMERA_INFO_NAME, block->get_info(RS2_CAMERA_INFO_NAME));
