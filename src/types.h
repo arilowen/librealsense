@@ -758,51 +758,7 @@ namespace librealsense
 
     };
 
-    struct native_pixel_format
-    {
-        uint32_t fourcc;
-        int plane_count;
-        size_t bytes_per_pixel;
-        std::vector<pixel_format_unpacker> unpackers;
-
-        size_t get_image_size(int width, int height) const { return width * height * plane_count * bytes_per_pixel; }
-
-        operator native_pixel_format_tuple() const
-        {
-            return std::make_tuple(fourcc, plane_count, bytes_per_pixel);
-        }
-    };
-
     class stream_profile_interface;
-
-    struct request_mapping
-    {
-        platform::stream_profile profile;
-        native_pixel_format* pf;
-        pixel_format_unpacker* unpacker;
-
-        // The request lists is there just for lookup and is not involved in object comparison
-        mutable std::vector<std::shared_ptr<stream_profile_interface>> original_requests;
-
-        operator request_mapping_tuple() const
-        {
-            return std::make_tuple(profile, *pf, *unpacker);
-        }
-
-        bool requires_processing() const { return unpacker->requires_processing; }
-
-    };
-
-    inline bool operator< (const request_mapping& first, const request_mapping& second)
-    {
-        return request_mapping_tuple(first) < request_mapping_tuple(second);
-    }
-
-    inline bool operator==(const request_mapping& a,
-        const request_mapping& b)
-    {
-        return (a.profile == b.profile) && (a.pf == b.pf) && (a.unpacker == b.unpacker);
-    }
 
     class frame_interface;
 
@@ -1808,19 +1764,6 @@ namespace std {
                 ^ (hash<uint32_t>()(k.width))
                 ^ (hash<uint32_t>()(k.fps))
                 ^ (hash<uint32_t>()(k.format));
-        }
-    };
-
-    template <>
-    struct hash<librealsense::request_mapping>
-    {
-        size_t operator()(const librealsense::request_mapping& k) const
-        {
-            using std::hash;
-
-            return (hash<librealsense::platform::stream_profile>()(k.profile))
-                ^ (hash<librealsense::pixel_format_unpacker*>()(k.unpacker))
-                ^ (hash<librealsense::native_pixel_format*>()(k.pf));
         }
     };
 }
