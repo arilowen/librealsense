@@ -31,9 +31,9 @@ namespace librealsense
     };
 
     std::map<uint32_t, rs2_stream> l500_depth_fourcc_to_rs2_stream = {
-        {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
-        {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
-        {rs_fourcc('C',' ',' ',' '), RS2_STREAM_CONFIDENCE}
+        { rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED },
+        { rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH },
+        { rs_fourcc('C',' ',' ',' '), RS2_STREAM_CONFIDENCE }
     };
 
     using namespace ivcam2;
@@ -137,18 +137,6 @@ namespace librealsense
                 { 2, "Short range" }}));
 
         depth_ep->register_processing_block(
-            { {RS2_FORMAT_Y8} },
-            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1, 0, 0, 0, &rotate_resolution} },
-            []() { return std::make_shared<ir_rotation_transform>(); }
-        );
-
-        depth_ep->register_processing_block(
-            { {RS2_FORMAT_RAW8} },
-            { {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution} },
-            []() { return std::make_shared<confidence_rotation_transform>(); }
-        );
-
-        depth_ep->register_processing_block(
             { {RS2_FORMAT_Z16}, {RS2_FORMAT_Y8} },
             { {RS2_FORMAT_Z16, RS2_STREAM_DEPTH, 0, 0, 0, 0, &rotate_resolution} },
             []() {
@@ -189,6 +177,18 @@ namespace librealsense
 
                 return cpb;
             }
+        );
+
+        depth_ep->register_processing_block(
+            { {RS2_FORMAT_Y8} },
+            { {RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1, 0, 0, 0, &rotate_resolution} },
+            []() { return std::make_shared<ir_rotation_transform>(); }
+        );
+
+        depth_ep->register_processing_block(
+            { {RS2_FORMAT_RAW8} },
+            { {RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, 0, 0, 0, 0, &l500_confidence_resolution} },
+            []() { return std::make_shared<confidence_rotation_transform>(); }
         );
 
         return depth_ep;

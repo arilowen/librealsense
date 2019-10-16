@@ -23,4 +23,8 @@ namespace librealsense {
     {
         return pre_process_frame(source, f, unpack_mjpeg);
     }
+    rs2::frame bgr_to_rgb::process_frame(const rs2::frame_source & source, const rs2::frame & f)
+    {
+        return pre_process_frame(source, f, unpack_rgb_from_bgr);
+    }
 }

@@ -1182,6 +1182,10 @@ namespace librealsense
                             // Add the cloned profile to the supported profiles by this processing block factory,
                             // for later processing validation in resolving the request.
                             pbf_supported_profiles[pbf.get()].push_back(cloned_profile);
+
+                            // In case of many to many, a source profile might resolve a specific request that is not mentioned in the targets of the specific processing block.
+                            // e.g. Processing block factory: Z16 + Y8Left -> Z16 ,
+                            //      Request: Z16, Y8Left.
                             pbf_supported_profiles[pbf.get()].push_back(profile);
 
                             // cache the source to target mapping
@@ -1217,16 +1221,17 @@ namespace librealsense
 
         int max_satisfied_req = 0;
         int best_source_size = 0;
-        int count = 0;
+        int satisfied_count = 0;
+
         for (auto&& pbf : _pb_factories)
         {
             auto satisfied_req = pbf->find_satisfied_requests(requests, pbf_supported_profiles[pbf.get()]);
-            count = satisfied_req.size();
-            if (count > max_satisfied_req
-                || (count == max_satisfied_req
+            satisfied_count = satisfied_req.size();
+            if (satisfied_count > max_satisfied_req
+                || (satisfied_count == max_satisfied_req
                     && pbf->get_source_info().size() < best_source_size))
             {
-                max_satisfied_req = count;
+                max_satisfied_req = satisfied_count;
                 best_source_size = pbf->get_source_info().size();
                 best_match_processing_block_factory = pbf;
                 best_match_requests = satisfied_req;
@@ -1287,6 +1292,18 @@ namespace librealsense
         }
     }
 
+    void synthetic_sensor::add_source_profiles_missing_data()
+    {
+        // Add missing data to all of the source profiles.
+        // init_stream_profiles() cloned the source profiles and converted them into target profiles.
+        // we must pass the missing data from the target profiles to the source profiles.
+        for (auto&& entry : _target_to_source_profiles_map)
+        {
+            for (auto&& source : entry.second)
+                add_source_profile_missing_data(source);
+        }
+    }
+
     stream_profiles synthetic_sensor::resolve_requests(const stream_profiles& requests)
     {
         // Convert the requests into profiles which are supported by the sensor.
@@ -1331,16 +1348,17 @@ namespace librealsense
                 {
                     if (best_pbf->has_source(source_profile))
                     {
-                        // init_stream_profiles() cloned the source profiles and converted them into target profiles.
-                        // we must pass the missing data from the target profiles to the source profiles.
-                        add_source_profile_missing_data(source_profile);
                         resolved_req_set.insert(source_profile);
                         current_resolved_reqs.insert(source_profile);
-                        _profiles_to_processing_block[source_profile] = best_pb;
+
+                        // Do not override already defined processing blocks
+                        const auto&& pb = _profiles_to_processing_block.find(source_profile);
+                        if (pb == end(_profiles_to_processing_block))
+                            _profiles_to_processing_block[source_profile] = best_pb;
                     }
                 }
             }
-            stream_profiles print_current_resolved_reqs = { current_resolved_reqs.begin(), current_resolved_reqs.end() };
+            const stream_profiles&& print_current_resolved_reqs = { current_resolved_reqs.begin(), current_resolved_reqs.end() };
             LOG_DEBUG("Request: " << best_reqs << "\nResolved to: " << print_current_resolved_reqs);
         }
         
@@ -1351,7 +1369,9 @@ namespace librealsense
     void synthetic_sensor::open(const stream_profiles& requests)
     {
         std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
-        auto resolved_req = resolve_requests(requests);
+        add_source_profiles_missing_data();
+
+        const auto&& resolved_req = resolve_requests(requests);
 
         _raw_sensor->set_source_owner(this->shared_from_this());
         _raw_sensor->open(resolved_req);

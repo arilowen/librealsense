@@ -30,6 +30,7 @@
 #include "proc/temporal-filter.h"
 #include "proc/y8i-to-y8y8.h"
 #include "proc/y12i-to-y16y16.h"
+#include "proc/color-formats-converter.h"
 #include "proc/syncer-processing-block.h"
 #include "proc/hole-filling-filter.h"
 #include "proc/depth-formats-converter.h"
@@ -44,7 +45,10 @@ namespace librealsense
         {rs_fourcc('W','1','0',' '), RS2_FORMAT_W10},
         {rs_fourcc('Y','1','6',' '), RS2_FORMAT_Y16},
         {rs_fourcc('Y','1','2','I'), RS2_FORMAT_Y12I},
-        {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16}
+        {rs_fourcc('Z','1','6',' '), RS2_FORMAT_Z16},
+        {rs_fourcc('U','Y','V','Y'), RS2_FORMAT_UYVY},
+        {rs_fourcc('R','G','B','2'), RS2_FORMAT_BGR8}
+        
     };
     std::map<uint32_t, rs2_stream> ds5_depth_fourcc_to_rs2_stream = {
         {rs_fourcc('G','R','E','Y'), RS2_STREAM_INFRARED},
@@ -52,6 +56,8 @@ namespace librealsense
         {rs_fourcc('W','1','0',' '), RS2_STREAM_INFRARED},
         {rs_fourcc('Y','1','6',' '), RS2_STREAM_INFRARED},
         {rs_fourcc('Y','1','2','I'), RS2_STREAM_INFRARED},
+        {rs_fourcc('U','Y','V','Y'), RS2_STREAM_INFRARED},
+        {rs_fourcc('R','G','B','2'), RS2_STREAM_INFRARED},
         {rs_fourcc('Z','1','6',' '), RS2_STREAM_DEPTH},
     };
 
@@ -930,7 +936,11 @@ namespace librealsense
         depth_ep->register_processing_block({ {RS2_FORMAT_W10} }, { {RS2_FORMAT_RAW10, RS2_STREAM_INFRARED, 1} }, []() { return std::make_shared<w10_converter>(RS2_FORMAT_RAW10); });
         depth_ep->register_processing_block({ {RS2_FORMAT_W10} }, { {RS2_FORMAT_Y10BPACK, RS2_STREAM_INFRARED, 1} }, []() { return std::make_shared<w10_converter>(RS2_FORMAT_Y10BPACK); });
 
-        raw_depth_ep->register_pixel_format(pf_uyvyl);
+        depth_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_RGB8, RS2_STREAM_INFRARED} }, []() { return std::make_shared<uyvy_converter>(RS2_FORMAT_RGB8, RS2_STREAM_INFRARED); });
+        depth_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_RGBA8, RS2_STREAM_INFRARED} }, []() { return std::make_shared<uyvy_converter>(RS2_FORMAT_RGBA8, RS2_STREAM_INFRARED); });
+        depth_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_BGR8, RS2_STREAM_INFRARED} }, []() { return std::make_shared<uyvy_converter>(RS2_FORMAT_BGR8, RS2_STREAM_INFRARED); });
+        depth_ep->register_processing_block({ {RS2_FORMAT_UYVY} }, { {RS2_FORMAT_BGRA8, RS2_STREAM_INFRARED} }, []() { return std::make_shared<uyvy_converter>(RS2_FORMAT_BGRA8, RS2_STREAM_INFRARED); });
+        depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_UYVY, RS2_STREAM_INFRARED));
 
         return depth_ep;
     }

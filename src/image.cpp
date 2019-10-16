@@ -1155,6 +1155,11 @@ namespace librealsense
         }
     }
 
+    void unpack_rgb_from_bgr(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        unpack_rgb_from_bgr(dest, source, width, height, actual_size);
+    }
+
 #ifdef ZERO_COPY
     constexpr bool requires_processing = false;
 #else

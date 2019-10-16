@@ -13,6 +13,7 @@ namespace librealsense
     void unpack_rotated_optimized(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_yuy2(rs2_format dst_format, rs2_stream dst_stream, byte * const d[], const byte * s, int w, int h, int actual_size);
     void unpack_uyvyc(rs2_format dst_format, rs2_stream dst_stream, byte * const d[], const byte * s, int w, int h, int actual_size);
+    void unpack_rgb_from_bgr(rs2_format dst_format, rs2_stream dst_stream, byte * const d[], const byte * s, int w, int h, int actual_size);
     void unpack_bayer16(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_mjpeg(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
     void unpack_motion_axes(rs2_format dst_format, rs2_stream dst_stream, byte * const dest[], const byte * source, int width, int height, int actual_size);
@@ -26,35 +27,6 @@ namespace librealsense
 
     resolution rotate_resolution(resolution res);
     resolution l500_confidence_resolution(resolution res);
-
-    extern const native_pixel_format pf_fe_raw8_unpatched_kernel; // W/O for unpatched kernel
-    extern const native_pixel_format pf_raw8;       // 8 bit luminance
-    extern const native_pixel_format pf_rw10;       // Four 10 bit luminance values in one 40 bit macropixel
-    extern const native_pixel_format pf_w10;        // Four 10 bit luminance values in one 40 bit macropixel
-    extern const native_pixel_format pf_rw16;       // 10 bit in 16 bit WORD with 6 bit unused
-    extern const native_pixel_format pf_bayer16;    // 16-bit Bayer raw
-    extern const native_pixel_format pf_yuy2;       // Y0 U Y1 V ordered chroma subsampled macropixel
-    extern const native_pixel_format pf_yuyv;       // Y0 U Y1 V ordered chroma subsampled macropixel
-    extern const native_pixel_format pf_y8;         // 8 bit IR/Luminosity (left) imager
-    extern const native_pixel_format pf_y8i;        // 8 bits left IR + 8 bits right IR per pixel
-    extern const native_pixel_format pf_y16;        // 16 bit (left) IR image
-    extern const native_pixel_format pf_y12i;       // 12 bits left IR + 12 bits right IR per pixel
-    extern const native_pixel_format pf_z16;        // 16 bit Z + Disparity image
-    extern const native_pixel_format pf_invz;       // 16 bit Z image
-    extern const native_pixel_format pf_f200_invi;  // 8-bit IR image
-    extern const native_pixel_format pf_f200_inzi;  // 16-bit Z + 8 bit IR per pixel
-    extern const native_pixel_format pf_sr300_invi; // 16-bit IR image
-    extern const native_pixel_format pf_sr300_inzi; // Planar 16-bit IR image followed by 16-bit Z image
-    extern const native_pixel_format pf_uyvyl;      // U Y0 V Y1 ordered chroma subsampled macropixel for Infrared stream
-    extern const native_pixel_format pf_uyvyc;      // U Y0 V Y1 ordered chroma subsampled macropixel for Color stream
-    extern const native_pixel_format pf_accel_axes;   // Parse accel HID raw data to 3 axes
-    extern const native_pixel_format pf_gyro_axes;   // Parse gyro HID raw data to 3 axes
-    extern const native_pixel_format pf_rgb888;
-    extern const native_pixel_format pf_gpio_timestamp; // Parse GPIO timestamp
-    extern const native_pixel_format pf_confidence_l500;
-    extern const native_pixel_format pf_z16_l500;
-    extern const native_pixel_format pf_y8_l500;
-    extern const native_pixel_format pf_mjpg;
 }
 
 #endif

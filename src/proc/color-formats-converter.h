@@ -11,13 +11,9 @@ namespace librealsense
 {
     class color_converter : public functional_processing_block
     {
-    public:
-        color_converter(rs2_format target_format) :
-            color_converter("Color Transform", target_format) {};
-
     protected:
-        color_converter(const char* name, rs2_format target_format) :
-            functional_processing_block(name, target_format, RS2_STREAM_COLOR, RS2_EXTENSION_VIDEO_FRAME) {};
+        color_converter(const char* name, rs2_format target_format, rs2_stream target_stream = RS2_STREAM_COLOR) :
+            functional_processing_block(name, target_format, target_stream, RS2_EXTENSION_VIDEO_FRAME) {};
     };
 
     class yuy2_converter : public color_converter
@@ -35,12 +31,12 @@ namespace librealsense
     class uyvy_converter : public color_converter
     {
     public:
-        uyvy_converter(rs2_format target_format) :
-            uyvy_converter("UYVY Converter", target_format) {};
+        uyvy_converter(rs2_format target_format, rs2_stream target_stream = RS2_STREAM_COLOR) :
+            uyvy_converter("UYVY Converter", target_format, target_stream) {};
 
     protected:
-        uyvy_converter(const char* name, rs2_format target_format) :
-            color_converter(name, target_format) {};
+        uyvy_converter(const char* name, rs2_format target_format, rs2_stream target_stream) :
+            color_converter(name, target_format, target_stream) {};
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
     };
 
@@ -65,6 +61,18 @@ namespace librealsense
     protected:
         raw16_converter(const char* name, rs2_format target_format) :
             color_converter(name, target_format){};
+        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+    };
+
+    class bgr_to_rgb : public color_converter
+    {
+    public:
+        bgr_to_rgb() :
+            bgr_to_rgb("BGR to RGB Converter") {};
+
+    protected:
+        bgr_to_rgb(const char* name) :
+            color_converter(name, RS2_FORMAT_RGB8, RS2_STREAM_INFRARED) {};
         rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
     };
 }

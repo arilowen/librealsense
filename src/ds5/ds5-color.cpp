@@ -66,10 +66,10 @@ namespace librealsense
         std::unique_ptr<frame_timestamp_reader> ds5_timestamp_reader_metadata(new ds5_timestamp_reader_from_metadata(std::move(ds5_timestamp_reader_backup)));
 
         auto enable_global_time_option = std::shared_ptr<global_time_option>(new global_time_option());
-        auto raw_color_ep = std::make_shared<uvc_sensor>("RGB Sensor",
+        auto raw_color_ep = std::make_shared<uvc_sensor>("Raw RGB Sensor",
             backend.create_uvc_device(color_devices_info.front()),
             std::unique_ptr<frame_timestamp_reader>(new global_timestamp_reader(std::move(ds5_timestamp_reader_metadata), _tf_keeper, enable_global_time_option)),
-                this);
+            this);
 
         auto color_ep = std::make_shared<ds5_color_sensor>(this,
             raw_color_ep,
