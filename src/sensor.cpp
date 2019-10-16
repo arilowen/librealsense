@@ -139,21 +139,6 @@ namespace librealsense
         _active_profiles = requests;
     }
 
-    bool sensor_base::try_get_pf(const platform::stream_profile& p, native_pixel_format& result) const
-    {
-        auto it = std::find_if(begin(_pixel_formats), end(_pixel_formats),
-            [&p](const native_pixel_format& pf)
-        {
-            return pf.fourcc == p.format;
-        });
-        if (it != end(_pixel_formats))
-        {
-            result = *it;
-            return true;
-        }
-        return false;
-    }
-
     void sensor_base::assign_stream(const std::shared_ptr<stream_interface>& stream, std::shared_ptr<stream_profile_interface> target) const
     {
         environment::get_instance().get_extrinsics_graph().register_same_extrinsics(*stream, *target);
@@ -205,24 +190,6 @@ namespace librealsense
     device_interface& sensor_base::get_device()
     {
         return *_owner;
-    }
-
-    void sensor_base::register_pixel_format(native_pixel_format pf)
-    {
-        if (_pixel_formats.end() == std::find_if(_pixel_formats.begin(), _pixel_formats.end(),
-            [&pf](const native_pixel_format& cur) { return cur.fourcc == pf.fourcc; }))
-            _pixel_formats.push_back(pf);
-        else
-            throw invalid_value_exception(to_string()
-                << "Pixel format " << std::hex << std::setw(8) << std::setfill('0') << pf.fourcc
-                << " has been already registered with the sensor " << get_info(RS2_CAMERA_INFO_NAME));
-    }
-
-    void sensor_base::remove_pixel_format(native_pixel_format pf)
-    {
-        auto it = std::find_if(_pixel_formats.begin(), _pixel_formats.end(), [&pf](const native_pixel_format& cur) { return cur.fourcc == pf.fourcc; });
-        if (it != _pixel_formats.end())
-            _pixel_formats.erase(it);
     }
 
     std::shared_ptr<frame> sensor_base::generate_frame_from_data(const platform::frame_object& fo,
@@ -1122,25 +1089,11 @@ namespace librealsense
     bool synthetic_sensor::is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles)
     {
         // Check if the given profile (duplicate parameter) is already found in profiles list.
-        // TODO - Ariel - replace with any_of
-        auto dup_iter = std::find_if(profiles.begin(), profiles.end(), [&duplicate](std::shared_ptr<stream_profile_interface> spi)
-        {
-            auto sp = std::dynamic_pointer_cast<video_stream_profile>(spi);
-            auto cp = std::dynamic_pointer_cast<video_stream_profile>(duplicate);
-            bool res = true;
+        const auto&& is_duplicate_predicate = [&duplicate](const std::shared_ptr<stream_profile_interface>& spi) {
+            return to_profile(spi.get()) == to_profile(duplicate.get());
+        };
 
-            if (sp && cp)
-                res = sp->get_height() == cp->get_height() &&
-                sp->get_width() == cp->get_width();
-
-            return (res &&
-                spi->get_format() == duplicate->get_format() &&
-                spi->get_stream_index() == duplicate->get_stream_index() &&
-                spi->get_stream_type() == duplicate->get_stream_type() &&
-                spi->get_framerate() == duplicate->get_framerate());
-        });
-
-        return dup_iter != profiles.end();
+        return std::any_of(begin(profiles), end(profiles), is_duplicate_predicate);
     }
 
     stream_profiles synthetic_sensor::init_stream_profiles()

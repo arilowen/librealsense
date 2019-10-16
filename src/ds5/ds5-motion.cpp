@@ -373,9 +373,6 @@ namespace librealsense
         fisheye_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         raw_fisheye_ep->register_xu(fisheye_xu); // make sure the XU is initialized everytime we power the camera
 
-        // TODO - Ariel - Add support for fisheye formats
-        //fisheye_ep->register_pixel_format(pf_raw8);
-        //fisheye_ep->register_pixel_format(pf_fe_raw8_unpatched_kernel); // W/O for unpatched kernel
         fisheye_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_RAW8, RS2_STREAM_FISHEYE));
 
         if (_fw_version >= firmware_version("5.6.3.0")) // Create Auto Exposure controls from FW version 5.6.3.0

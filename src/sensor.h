@@ -67,9 +67,6 @@ namespace librealsense
         }
         device_interface& get_device() override;
 
-        void register_pixel_format(native_pixel_format pf);
-        void remove_pixel_format(native_pixel_format pf);
-
         // Make sensor inherit its owning device info by default
         const std::string& get_info(rs2_camera_info info) const override;
         bool supports_info(rs2_camera_info info) const override;
@@ -85,7 +82,6 @@ namespace librealsense
     protected:
         void raise_on_before_streaming_changes(bool streaming);
         void set_active_streams(const stream_profiles& requests);
-        bool try_get_pf(const platform::stream_profile& p, native_pixel_format& result) const;
 
         void assign_stream(const std::shared_ptr<stream_interface>& stream,
                            std::shared_ptr<stream_profile_interface> target) const;
@@ -115,7 +111,6 @@ namespace librealsense
     private:
         lazy<stream_profiles> _profiles;
         stream_profiles _active_profiles;
-        std::vector<native_pixel_format> _pixel_formats;
         signal<sensor_base, bool> on_before_streaming_changes;
     };
 
