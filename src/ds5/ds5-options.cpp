@@ -218,21 +218,7 @@ namespace librealsense
           _auto_exposure_state(auto_exposure_state),
           _to_add_frames((_auto_exposure_state->get_enable_auto_exposure())),
           _auto_exposure(auto_exposure)
-    {
-        // TODO - Ariel - fix
-
-        //fisheye_ep->register_on_before_frame_callback(
-        //            [this](rs2_stream stream, frame_interface* f, callback_invocation_holder callback)
-        //{
-        //    if (!_to_add_frames || stream != RS2_STREAM_FISHEYE)
-        //        return;
-
-        //    ((frame*)f)->additional_data.fisheye_ae_mode = true;
-
-        //    f->acquire();
-        //    _auto_exposure->add_frame(f, std::move(callback));
-        //});
-    }
+    {}
 
     auto_exposure_mode_option::auto_exposure_mode_option(std::shared_ptr<auto_exposure_mechanism> auto_exposure,
                                                          std::shared_ptr<auto_exposure_state> auto_exposure_state,

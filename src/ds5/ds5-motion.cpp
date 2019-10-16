@@ -22,6 +22,8 @@
 #include "stream.h"
 #include "environment.h"
 #include "proc/motion-transform.h"
+#include "proc/identity-processing-block.h"
+#include "proc/auto-exposure-processor.h"
 
 namespace librealsense
 {
@@ -289,6 +291,20 @@ namespace librealsense
                                     exposure_option,
                                     auto_exposure_option));
 
+        ep->register_processing_block(
+            { {RS2_FORMAT_RAW8}},
+            { {RS2_FORMAT_RAW8, RS2_STREAM_FISHEYE} },
+            [auto_exposure_option]() {
+                auto id = std::make_shared<identity_processing_block>();
+                auto ae = std::make_shared<auto_exposure_processor>(RS2_STREAM_FISHEYE, *auto_exposure_option);
+
+                auto cpb = std::make_shared<composite_processing_block>();
+                cpb->add(id);
+                cpb->add(ae);
+
+                return cpb;
+            }
+        );
         return auto_exposure;
     }
 
@@ -372,8 +388,6 @@ namespace librealsense
 
         fisheye_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         raw_fisheye_ep->register_xu(fisheye_xu); // make sure the XU is initialized everytime we power the camera
-
-        fisheye_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_RAW8, RS2_STREAM_FISHEYE));
 
         if (_fw_version >= firmware_version("5.6.3.0")) // Create Auto Exposure controls from FW version 5.6.3.0
         {

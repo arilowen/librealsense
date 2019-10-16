@@ -91,6 +91,9 @@ namespace librealsense
             return "Enable/disable auto-exposure";
         }
 
+        auto_exposure_mechanism* get_auto_exposure() { return _auto_exposure.get(); }
+        bool to_add_frames() { return _to_add_frames.load(); }
+
         enable_auto_exposure_option(synthetic_sensor* fisheye_ep,
                                     std::shared_ptr<auto_exposure_mechanism> auto_exposure,
                                     std::shared_ptr<auto_exposure_state> auto_exposure_state,

@@ -33,6 +33,7 @@ target_sources(${LRS_TARGET}
 	"${CMAKE_CURRENT_LIST_DIR}/color-formats-converter.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/depth-formats-converter.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/motion-transform.cpp"
+	"${CMAKE_CURRENT_LIST_DIR}/auto-exposure-processor.cpp"
 
         "${CMAKE_CURRENT_LIST_DIR}/processing-blocks-factory.h"
         "${CMAKE_CURRENT_LIST_DIR}/align.h"
@@ -57,4 +58,5 @@ target_sources(${LRS_TARGET}
 	"${CMAKE_CURRENT_LIST_DIR}/color-formats-converter.h"
 	"${CMAKE_CURRENT_LIST_DIR}/depth-formats-converter.h"
 	"${CMAKE_CURRENT_LIST_DIR}/motion-transform.h"
+	"${CMAKE_CURRENT_LIST_DIR}/auto-exposure-processor.h"
 )
