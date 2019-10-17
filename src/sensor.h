@@ -157,7 +157,6 @@ namespace librealsense
         std::shared_ptr<stream_profile_interface> filter_frame_by_requests(const frame_interface* f);
         void sort_profiles(stream_profiles * profiles);
         std::pair<std::shared_ptr<processing_block_factory>, stream_profiles> find_requests_best_pb_match(const stream_profiles& sp);
-        std::unordered_set<std::shared_ptr<stream_profile_interface>> map_requests_to_source_profiles(const stream_profiles& requests);
         void add_source_profile_missing_data(std::shared_ptr<stream_profile_interface>& source_profile);
         void add_source_profiles_missing_data();
         bool is_duplicated_profile(const std::shared_ptr<stream_profile_interface>& duplicate, const stream_profiles& profiles);

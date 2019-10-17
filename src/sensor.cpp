@@ -65,7 +65,7 @@ namespace librealsense
     {
         if (supports_option(RS2_OPTION_ERROR_POLLING_ENABLED))
         {
-            auto& opt = get_option(RS2_OPTION_ERROR_POLLING_ENABLED);
+            auto&& opt = get_option(RS2_OPTION_ERROR_POLLING_ENABLED);
             opt.set(1.0f);
         }
         _notifications_processor->set_callback(std::move(callback));
@@ -263,7 +263,7 @@ namespace librealsense
 
         for (auto&& req_profile : requests)
         {
-            auto req_profile_base = std::dynamic_pointer_cast<stream_profile_base>(req_profile);
+            auto&& req_profile_base = std::dynamic_pointer_cast<stream_profile_base>(req_profile);
             try
             {
                 unsigned long long last_frame_number = 0;
@@ -271,13 +271,13 @@ namespace librealsense
                 _device->probe_and_commit(req_profile_base->get_backend_profile(),
                     [this, req_profile_base, req_profile, last_frame_number, last_timestamp](platform::stream_profile p, platform::frame_object f, std::function<void()> continuation) mutable
                 {
-                    auto system_time = environment::get_instance().get_time_service()->get_time();
-                    auto fr = generate_frame_from_data(f, _timestamp_reader.get(), last_timestamp, last_frame_number, req_profile_base);
-                    auto requires_processing = true; // TODO - Ariel add option
-                    auto frame_counter = fr->additional_data.frame_number;
-                    auto timestamp_domain = _timestamp_reader->get_frame_timestamp_domain(fr);
-                    auto timestamp = fr->additional_data.timestamp;
-                    auto bpp = get_image_bpp(req_profile_base->get_format());
+                    const auto&& system_time = environment::get_instance().get_time_service()->get_time();
+                    const auto&& fr = generate_frame_from_data(f, _timestamp_reader.get(), last_timestamp, last_frame_number, req_profile_base);
+                    const auto&& requires_processing = true; // TODO - Ariel add option
+                    const auto&& timestamp_domain = _timestamp_reader->get_frame_timestamp_domain(fr);
+                    const auto&& bpp = get_image_bpp(req_profile_base->get_format());
+                    auto&& frame_counter = fr->additional_data.frame_number;
+                    auto&& timestamp = fr->additional_data.timestamp;
 
                     if (!this->is_streaming())
                     {
@@ -302,7 +302,7 @@ namespace librealsense
                     last_frame_number = frame_counter;
                     last_timestamp = timestamp;
 
-                    auto vsp = As<video_stream_profile, stream_profile_interface>(req_profile);
+                    const auto&& vsp = As<video_stream_profile, stream_profile_interface>(req_profile);
                     int width = vsp ? vsp->get_width() : 0;
                     int height = vsp ? vsp->get_height() : 0;
 
@@ -310,7 +310,7 @@ namespace librealsense
                     if (fh.frame)
                     {
                         memcpy((void*)fh->get_frame_data(), fr->data.data(), sizeof(byte)*fr->data.size());
-                        auto video = (video_frame*)fh.frame;
+                        auto&& video = (video_frame*)fh.frame;
                         video->assign(width, height, width * bpp / 8, bpp);
                         video->set_timestamp_domain(timestamp_domain);
                         fh->set_stream(req_profile_base);
@@ -359,7 +359,7 @@ namespace librealsense
         }
         catch (...)
         {
-            for (auto& profile : _internal_config)
+            for (auto&& profile : _internal_config)
             {
                 try {
                     _device->close(profile);
@@ -386,7 +386,7 @@ namespace librealsense
         else if (!_is_opened)
             throw wrong_api_call_sequence_exception("close() failed. UVC device was not opened!");
 
-        for (auto& profile : _internal_config)
+        for (auto&& profile : _internal_config)
         {
             try // Handle disconnect event
             {
@@ -473,7 +473,7 @@ namespace librealsense
         if (_user_count.fetch_add(1) == 0)
         {
             _device->set_power_state(platform::D0);
-            for (auto& xu : _xus) _device->init_xu(xu);
+            for (auto&& xu : _xus) _device->init_xu(xu);
         }
     }
 
@@ -496,11 +496,11 @@ namespace librealsense
 
         for (auto&& p : _uvc_profiles)
         {
-            auto rs2_fmt = fourcc_to_rs2_format(p.format);
+            const auto&& rs2_fmt = fourcc_to_rs2_format(p.format);
             if (rs2_fmt == RS2_FORMAT_ANY)
                 continue;
 
-            auto profile = std::make_shared<video_stream_profile>(p);
+            auto&& profile = std::make_shared<video_stream_profile>(p);
             profile->set_dims(p.width, p.height);
             profile->set_stream_type(fourcc_to_rs2_stream(p.format));
             profile->set_stream_index(0);
@@ -525,7 +525,7 @@ namespace librealsense
 
     bool info_container::supports_info(rs2_camera_info info) const
     {
-        auto it = _camera_info.find(info);
+        const auto&& it = _camera_info.find(info);
         return it != _camera_info.end();
     }
 
@@ -550,7 +550,7 @@ namespace librealsense
     }
     const std::string& info_container::get_info(rs2_camera_info info) const
     {
-        auto it = _camera_info.find(info);
+        const auto&& it = _camera_info.find(info);
         if (it == _camera_info.end())
             throw invalid_value_exception("Selected camera info is not supported for this camera!");
 
@@ -567,7 +567,7 @@ namespace librealsense
 
     void info_container::update(std::shared_ptr<extension_snapshot> ext)
     {
-        if (auto info_api = As<info_interface>(ext))
+        if (auto&& info_api = As<info_interface>(ext))
         {
             for (int i = 0; i < RS2_CAMERA_INFO_COUNT; ++i)
             {
@@ -624,15 +624,15 @@ namespace librealsense
         register_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP, make_additional_data_parser(&frame_additional_data::backend_timestamp));
 
         std::map<std::string, uint32_t> frequency_per_sensor;
-        for (auto& elem : sensor_name_and_hid_profiles)
+        for (auto&& elem : sensor_name_and_hid_profiles)
             frequency_per_sensor.insert(make_pair(elem.first, elem.second.fps));
 
         std::vector<platform::hid_profile> profiles_vector;
-        for (auto& elem : frequency_per_sensor)
+        for (auto&& elem : frequency_per_sensor)
             profiles_vector.push_back(platform::hid_profile{elem.first, elem.second});
 
         _hid_device->register_profiles(profiles_vector);
-        for (auto& elem : _hid_device->get_sensors())
+        for (auto&& elem : _hid_device->get_sensors())
             _hid_sensors.push_back(elem);
     }
 
@@ -655,11 +655,11 @@ namespace librealsense
     stream_profiles hid_sensor::get_sensor_profiles(std::string sensor_name) const
     {
         stream_profiles profiles{};
-        for (auto& elem : _sensor_name_and_hid_profiles)
+        for (auto&& elem : _sensor_name_and_hid_profiles)
         {
             if (!elem.first.compare(sensor_name))
             {
-                auto p = elem.second;
+                auto&& p = elem.second;
                 platform::stream_profile sp{ 1, 1, p.fps, stream_to_fourcc(p.stream) };
                 auto profile = std::make_shared<motion_stream_profile>(sp);
                 profile->set_stream_index(p.index);
@@ -682,9 +682,9 @@ namespace librealsense
             throw wrong_api_call_sequence_exception("Hid device is already opened!");
 
         std::vector<platform::hid_profile> configured_hid_profiles;
-        for (auto& request : requests)
+        for (auto&& request : requests)
         {
-            auto sensor_name = rs2_stream_to_sensor_name(request->get_stream_type());
+            auto&& sensor_name = rs2_stream_to_sensor_name(request->get_stream_type());
             _configured_profiles.insert(std::make_pair(sensor_name, request));
             _is_configured_stream[request->get_stream_type()] = true;
             configured_hid_profiles.push_back(platform::hid_profile{ sensor_name,
@@ -749,11 +749,11 @@ namespace librealsense
 
         _hid_device->start_capture([this, last_frame_number, last_timestamp](const platform::sensor_data& sensor_data) mutable
         {
-            auto system_time = environment::get_instance().get_time_service()->get_time();
+            const auto&& system_time = environment::get_instance().get_time_service()->get_time();
             auto timestamp_reader = _hid_iio_timestamp_reader.get();
             static const std::string custom_sensor_name = "custom";
-            auto sensor_name = sensor_data.sensor.name;
-            auto request = _configured_profiles[sensor_name];
+            auto&& sensor_name = sensor_data.sensor.name;
+            auto&& request = _configured_profiles[sensor_name];
             bool is_custom_sensor = false;
             static const uint32_t custom_source_id_offset = 16;
             uint8_t custom_gpio = 0;
@@ -782,13 +782,12 @@ namespace librealsense
                 return;
             }
 
-            auto fr = generate_frame_from_data(sensor_data.fo, timestamp_reader, last_timestamp, last_frame_number, request);
-            auto frame_counter = fr->additional_data.frame_number;
-            auto timestamp_domain = timestamp_reader->get_frame_timestamp_domain(fr);
-            auto timestamp = fr->additional_data.timestamp;
-            auto bpp = get_image_bpp(request->get_format());
-
-            auto data_size = sensor_data.fo.frame_size;
+            const auto&& fr = generate_frame_from_data(sensor_data.fo, timestamp_reader, last_timestamp, last_frame_number, request);
+            auto&& frame_counter = fr->additional_data.frame_number;
+            const auto&& timestamp_domain = timestamp_reader->get_frame_timestamp_domain(fr);
+            auto&& timestamp = fr->additional_data.timestamp;
+            const auto&& bpp = get_image_bpp(request->get_format());
+            auto&& data_size = sensor_data.fo.frame_size;
 
             LOG_DEBUG("FrameAccepted," << get_string(request->get_stream_type())
                 << ",Counter," << std::dec << frame_counter << ",Index,0"
@@ -838,7 +837,7 @@ namespace librealsense
     stream_profiles hid_sensor::init_stream_profiles()
     {
         stream_profiles stream_requests;
-        for (auto it = _hid_sensors.rbegin(); it != _hid_sensors.rend(); ++it)
+        for (auto&& it = _hid_sensors.rbegin(); it != _hid_sensors.rend(); ++it)
         {
             auto profiles = get_sensor_profiles(it->name);
             stream_requests.insert(stream_requests.end(), profiles.begin() ,profiles.end());
@@ -849,7 +848,7 @@ namespace librealsense
 
     const std::string& hid_sensor::rs2_stream_to_sensor_name(rs2_stream stream) const
     {
-        for (auto& elem : _sensor_name_and_hid_profiles)
+        for (auto&& elem : _sensor_name_and_hid_profiles)
         {
             if (stream == elem.second.stream)
                 return elem.first;
@@ -1013,7 +1012,7 @@ namespace librealsense
 
     void synthetic_sensor::register_pu(rs2_option id)
     {
-        auto raw_uvc_sensor = As<uvc_sensor, sensor_base>(_raw_sensor);
+        const auto&& raw_uvc_sensor = As<uvc_sensor, sensor_base>(_raw_sensor);
         register_option(id, std::make_shared<uvc_pu_option>(*raw_uvc_sensor.get(), id));
     }
 
@@ -1022,13 +1021,13 @@ namespace librealsense
         std::sort(profiles->begin(), profiles->end(), [](const std::shared_ptr<stream_profile_interface>& ap,
                                          const std::shared_ptr<stream_profile_interface>& bp)
         {
-            auto a = to_profile(ap.get());
-            auto b = to_profile(bp.get());
+            const auto&& a = to_profile(ap.get());
+            const auto&& b = to_profile(bp.get());
 
             // stream == RS2_STREAM_COLOR && format == RS2_FORMAT_RGB8 element works around the fact that Y16 gets priority over RGB8 when both
             // are available for pipeline stream resolution
-            auto at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == RS2_FORMAT_RGB8, a.format);
-            auto bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == RS2_FORMAT_RGB8, b.format);
+            const auto&& at = std::make_tuple(a.stream, a.width, a.height, a.fps, a.stream == RS2_STREAM_COLOR && a.format == RS2_FORMAT_RGB8, a.format);
+            const auto&& bt = std::make_tuple(b.stream, b.width, b.height, b.fps, b.stream == RS2_STREAM_COLOR && b.format == RS2_FORMAT_RGB8, b.format);
 
             return at > bt;
         });
@@ -1103,10 +1102,10 @@ namespace librealsense
 
         for (auto&& pbf : _pb_factories)
         {
-            auto& sources = pbf->get_source_info();
-            auto& targets = pbf->get_target_info();
+            const auto&& sources = pbf->get_source_info();
+            const auto&& targets = pbf->get_target_info();
 
-            for (auto& source : sources)
+            for (auto&& source : sources)
             {
                 // add profiles that are supported by the device
                 for (auto& profile : profiles)
@@ -1118,15 +1117,15 @@ namespace librealsense
                         {
                             target.fps = profile->get_framerate();
 
-                            auto cloned_profile = clone_profile(profile);
+                            auto&& cloned_profile = clone_profile(profile);
                             cloned_profile->set_format(target.format);
                             cloned_profile->set_stream_index(target.index);
                             cloned_profile->set_stream_type(target.stream);
 
-                            auto cloned_vsp = As<video_stream_profile, stream_profile_interface>(cloned_profile);
+                            auto&& cloned_vsp = As<video_stream_profile, stream_profile_interface>(cloned_profile);
                             if (cloned_vsp)
                             {
-                                auto res = target.stream_resolution({ cloned_vsp->get_width(), cloned_vsp->get_height() });
+                                const auto&& res = target.stream_resolution({ cloned_vsp->get_width(), cloned_vsp->get_height() });
                                 target.height = res.height;
                                 target.width = res.width;
                                 cloned_vsp->set_dims(target.width, target.height);
@@ -1194,23 +1193,6 @@ namespace librealsense
         return {best_match_processing_block_factory, best_match_requests};
     }
 
-    std::unordered_set<std::shared_ptr<stream_profile_interface>> synthetic_sensor::map_requests_to_source_profiles(const stream_profiles& requests)
-    {
-        // Find the source profiles matching the requests which were cached in the profiles init.
-
-        std::unordered_set<std::shared_ptr<stream_profile_interface>> mapped_source_profiles;
-        for (auto req : requests)
-        {
-            auto output_info = to_profile(req.get());
-            auto mapped_profiles = _target_to_source_profiles_map[output_info];
-            for (auto&& map : mapped_profiles)
-                map->set_stream_index(req->get_stream_index());
-            mapped_source_profiles.insert(begin(mapped_profiles), end(mapped_profiles));
-        }
-
-        return mapped_source_profiles;
-    }
-
     void synthetic_sensor::add_source_profile_missing_data(std::shared_ptr<stream_profile_interface>& source_profile)
     {
         // Add the missing data to the desired source profile.
@@ -1266,7 +1248,7 @@ namespace librealsense
         stream_profiles unhandled_reqs(requests);
         
         // cache the requests
-        for (auto req : requests)
+        for (auto&& req : requests)
         {
             cached_requests[req->get_format()].push_back(req);
         }
@@ -1280,7 +1262,7 @@ namespace librealsense
             auto&& best_reqs = best_match.second;
             
             // mark as handled resolved requests
-            for (auto req : best_reqs)
+            for (auto&& req : best_reqs)
             {
                 const auto&& matching_req_predicate = [&req](auto sp) {
                     return to_profile(req.get()) == to_profile(sp.get());
@@ -1292,12 +1274,12 @@ namespace librealsense
             std::unordered_set<std::shared_ptr<stream_profile_interface>> current_resolved_reqs;
             auto best_pb = best_pbf->generate();
             register_processing_block_options(*best_pb);
-            for (auto req : best_reqs)
+            for (auto&& req : best_reqs)
             {
                 auto&& target = to_profile(req.get());
                 auto&& mapped_source_profiles = _target_to_source_profiles_map[target];
 
-                for (auto source_profile : mapped_source_profiles)
+                for (auto&& source_profile : mapped_source_profiles)
                 {
                     if (best_pbf->has_source(source_profile))
                     {
@@ -1353,12 +1335,12 @@ namespace librealsense
 
     std::shared_ptr<stream_profile_interface> synthetic_sensor::filter_frame_by_requests(const frame_interface* f)
     {
-        auto cached_req = cached_requests.find(f->get_stream()->get_format());
+        const auto&& cached_req = cached_requests.find(f->get_stream()->get_format());
         if (cached_req == cached_requests.end())
             return nullptr;
 
         auto&& reqs = cached_req->second;
-        auto&& req_it = std::find_if(begin(reqs), end(reqs), [&f](auto req) {
+        auto&& req_it = std::find_if(begin(reqs), end(reqs), [&f](const std::shared_ptr<stream_profile_interface>& req) {
             return (req->get_stream_index() == f->get_stream()->get_stream_index() &&
                 req->get_stream_type() == f->get_stream()->get_stream_type());
         });
@@ -1371,11 +1353,11 @@ namespace librealsense
         std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
 
         // After processing callback
-        auto output_cb = make_callback([&, callback](frame_holder f) {
+        const auto&& output_cb = make_callback([&, callback](frame_holder f) {
             std::vector<frame_interface*> frames_to_process;
             frames_to_process.push_back(f.frame);
 
-            auto composite = dynamic_cast<composite_frame*>(f.frame);
+            auto&& composite = dynamic_cast<composite_frame*>(f.frame);
             if (composite)
             {
                 for (int i = 0; i < composite->get_embedded_frames_count(); i++)
@@ -1415,7 +1397,7 @@ namespace librealsense
         }
 
         // Invoke processing blocks callback
-        auto process_cb = make_callback([&, callback, this](frame_holder f) {
+        const auto&& process_cb = make_callback([&, callback, this](frame_holder f) {
             if (!f)
                 return;
 
