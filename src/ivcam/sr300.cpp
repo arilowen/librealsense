@@ -179,20 +179,20 @@ namespace librealsense
             { { RS2_FORMAT_INVI } },
             { { RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1 } },
             []() {return std::make_shared<invi_converter>(RS2_FORMAT_Y8); });
-        //depth_ep->register_processing_block(
-        //    { { RS2_FORMAT_INVI } },
-        //    { { RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 1 } },
-        //    []() {return std::make_shared<invi_converter>(RS2_FORMAT_Y16); });
+        depth_ep->register_processing_block(
+            { { RS2_FORMAT_INVI } },
+            { { RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 1 } },
+            []() {return std::make_shared<invi_converter>(RS2_FORMAT_Y16); });
         depth_ep->register_processing_block(
             { { RS2_FORMAT_INZI } },
             { { RS2_FORMAT_Z16, RS2_STREAM_DEPTH }, { RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1 } },
             []() {return std::make_shared<inzi_converter>(RS2_FORMAT_Y8); });
-        //depth_ep->register_processing_block(
-        //    { { RS2_FORMAT_INZI } },
-        //    { { RS2_FORMAT_Z16, RS2_STREAM_DEPTH }, { RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 1 } },
-        //    []() {return std::make_shared<inzi_converter>(RS2_FORMAT_Y16); });
-        //depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1));
-        //depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Z16, RS2_STREAM_DEPTH));
+        depth_ep->register_processing_block(
+            { { RS2_FORMAT_INZI } },
+            { { RS2_FORMAT_Z16, RS2_STREAM_DEPTH }, { RS2_FORMAT_Y16, RS2_STREAM_INFRARED, 1 } },
+            []() {return std::make_shared<inzi_converter>(RS2_FORMAT_Y16); });
+        depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Y8, RS2_STREAM_INFRARED, 1));
+        depth_ep->register_processing_block(processing_block_factory::create_id_pbf(RS2_FORMAT_Z16, RS2_STREAM_DEPTH));
 
         register_depth_xu<uint8_t>(*depth_ep, RS2_OPTION_LASER_POWER, IVCAM_DEPTH_LASER_POWER,
             "Power of the SR300 projector, with 0 meaning projector off");
