@@ -9,7 +9,7 @@
 
 namespace librealsense
 {
-    class LRS_EXTENSION_API motion_transform : public functional_processing_block
+    class motion_transform : public functional_processing_block
     {
     public:
         motion_transform(rs2_format target_format, rs2_stream target_stream, mm_calib_handler* mm_calib = nullptr, bool is_motion_correction_enabled = false);
@@ -23,5 +23,25 @@ namespace librealsense
 
         mm_calib_handler* _mm_calib = nullptr;
         bool _is_motion_correction_enabled = false;
+    };
+
+    class acceleration_transform : public motion_transform
+    {
+    public:
+        acceleration_transform(mm_calib_handler* mm_calib = nullptr, bool is_motion_correction_enabled = false);
+
+    protected:
+        acceleration_transform(const char* name, mm_calib_handler* mm_calib, bool is_motion_correction_enabled);
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
+    };
+
+    class gyroscope_transform : public motion_transform
+    {
+    public:
+        gyroscope_transform(mm_calib_handler* mm_calib = nullptr, bool is_motion_correction_enabled = false);
+
+    protected:
+        gyroscope_transform(const char* name, mm_calib_handler* mm_calib, bool is_motion_correction_enabled);
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 }

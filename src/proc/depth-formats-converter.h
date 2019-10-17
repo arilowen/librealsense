@@ -17,6 +17,7 @@ namespace librealsense
 
     protected:
         inzi_converter(const char* name, rs2_format target_ir_format);
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 
     class invi_converter : public functional_processing_block
@@ -28,7 +29,7 @@ namespace librealsense
     protected:
         invi_converter(const char* name, rs2_format target_format) :
             functional_processing_block(name, target_format, RS2_STREAM_INFRARED, RS2_EXTENSION_VIDEO_FRAME) {};
-        rs2::frame process_frame(const rs2::frame_source & source, const rs2::frame & f) override;
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 
     class w10_converter : public functional_processing_block
@@ -39,7 +40,6 @@ namespace librealsense
 
     protected:
         w10_converter(const char* name, const rs2_format& target_format);
-
-        rs2::frame process_frame(const rs2::frame_source & source, const rs2::frame & f) override;
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 }

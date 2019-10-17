@@ -147,28 +147,10 @@ namespace librealsense
         functional_processing_block(const char* name, rs2_format target_format, rs2_stream target_stream = RS2_STREAM_ANY, rs2_extension extension_type = RS2_EXTENSION_VIDEO_FRAME);
 
     protected:
-        virtual void init(const rs2::frame* f);
-
-        template<typename F>
-        rs2::frame pre_process_frame(const rs2::frame_source& source, const rs2::frame& f, F process)
-        {
-            auto&& ret = prepare_frame(source, f);
-            int width = 0;
-            int height = 0;
-            auto vf = ret.as<rs2::video_frame>();
-            if (vf)
-            {
-                width = vf.get_width();
-                height = vf.get_height();
-            }
-            byte* planes[1];
-            planes[0] = (byte*)ret.get_data();
-
-            process(_target_format, _target_stream, planes, (const byte*)f.get_data(), width, height, height * width * _target_bpp);
-
-            return ret;
-        };
+        virtual void init_profiles_info(const rs2::frame* f);
+        rs2::frame process_frame(const rs2::frame_source & source, const rs2::frame & f) override;
         virtual rs2::frame prepare_frame(const rs2::frame_source& source, const rs2::frame& f);
+        virtual void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) = 0;
 
         rs2::stream_profile _target_stream_profile;
         rs2::stream_profile _source_stream_profile;
@@ -194,72 +176,8 @@ namespace librealsense
             int right_idx);
 
     protected:
-        template<typename F>
-        void configure_processing_callback(F process)
-        {
-            // define and set the frame processing callback
-            auto process_callback = [&, process](frame_holder frame, synthetic_source_interface* source)
-            {
-                auto profile = As<librealsense::video_stream_profile, stream_profile_interface>(frame.frame->get_stream());
-                if (!profile)
-                {
-                    LOG_ERROR("Failed configuring interleaved funcitonal processing block: ", get_info(RS2_CAMERA_INFO_NAME));
-                    return;
-                }
-
-                auto w = profile->get_width();
-                auto h = profile->get_height();
-
-                if (profile.get() != _source_stream_profile.get())
-                {
-                    _source_stream_profile = profile;
-                    _right_target_stream_profile = profile->clone();
-                    _left_target_stream_profile = profile->clone();
-
-                    _left_target_bpp = get_image_bpp(_left_target_format) / 8;
-                    _right_target_bpp = get_image_bpp(_right_target_format) / 8;
-
-                    _left_target_stream_profile->set_format(_left_target_format);
-                    _right_target_stream_profile->set_format(_right_target_format);
-                    _left_target_stream_profile->set_stream_type(_left_target_stream);
-                    _right_target_stream_profile->set_stream_type(_right_target_stream);
-                    _left_target_stream_profile->set_stream_index(_left_target_profile_idx);
-                    _left_target_stream_profile->set_unique_id(_left_target_profile_idx);
-                    _right_target_stream_profile->set_stream_index(_right_target_profile_idx);
-                    _right_target_stream_profile->set_unique_id(_right_target_profile_idx);
-                }
-
-                // passthrough the frame if we don't need to process it.
-                auto format = profile->get_format();
-                if (format != _source_format)
-                {
-                    source->frame_ready(std::move(frame));
-                    return;
-                }
-
-                frame_holder lf, rf;
-
-                lf = source->allocate_video_frame(_left_target_stream_profile, frame, _left_target_bpp,
-                    w, h, w * _left_target_bpp, _left_extension_type);
-                rf = source->allocate_video_frame(_right_target_stream_profile, frame, _right_target_bpp,
-                    w, h, w * _right_target_bpp, _right_extension_type);
-
-                // process the frame
-                byte* planes[2];
-                planes[0] = (byte*)lf.frame->get_frame_data();
-                planes[1] = (byte*)rf.frame->get_frame_data();
-
-                process(_left_target_format, _left_target_stream,
-                    _right_target_format, _right_target_stream,
-                    planes, (const byte*)frame->get_frame_data(), w, h, 0);
-
-                source->frame_ready(std::move(lf));
-                source->frame_ready(std::move(rf));
-            };
-
-            set_processing_callback(std::shared_ptr<rs2_frame_processor_callback>(
-                new internal_frame_processor_callback<decltype(process_callback)>(process_callback)));
-        };
+        virtual void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) = 0;
+        void configure_processing_callback();
 
         std::shared_ptr<stream_profile_interface> _source_stream_profile;
         std::shared_ptr<stream_profile_interface> _left_target_stream_profile;

@@ -11,6 +11,81 @@
 
 namespace librealsense
 {
+    //// Unpacking routines ////
+    template<size_t SIZE>
+    void unpack_l500_image_optimized(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        auto width_out = height;
+        auto height_out = width;
+
+        auto out = dest[0];
+        byte buffer[8][8 * SIZE]; // = { 0 };
+        for (int i = 0; i <= height - 8; i = i + 8)
+        {
+            for (int j = 0; j <= width - 8; j = j + 8)
+            {
+                for (int ii = 0; ii < 8; ++ii)
+                {
+                    for (int jj = 0; jj < 8; ++jj)
+                    {
+                        auto source_index = ((j + jj) + (width * (i + ii))) * SIZE;
+                        memcpy((void*)(&buffer[7 - jj][(7 - ii) * SIZE]), &source[source_index], SIZE);
+                    }
+                }
+
+                for (int ii = 0; ii < 8; ++ii)
+                {
+                    auto out_index = (((height_out - 8 - j + 1) * width_out) - i - 8 + (ii)* width_out);
+                    memcpy(&out[(out_index)* SIZE], &(buffer[ii]), 8 * SIZE);
+                }
+            }
+        }
+    }
+
+    template<size_t SIZE>
+    void unpack_l500_image(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        auto width_out = height;
+        auto height_out = width;
+
+        auto out = dest[0];
+        for (int i = 0; i < height; ++i)
+        {
+            auto row_offset = i * width;
+            for (int j = 0; j < width; ++j)
+            {
+                auto out_index = (((height_out - j) * width_out) - i - 1) * SIZE;
+                librealsense::copy((void*)(&out[out_index]), &(source[(row_offset + j) * SIZE]), SIZE);
+            }
+        }
+    }
+
+    void unpack_confidence(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+#pragma pack (push, 1)
+        struct lsb_msb
+        {
+            unsigned lsb : 4;
+            unsigned msb : 4;
+        };
+#pragma pack(pop)
+
+        unpack_l500_image<1>(dest, source, width, height, actual_size);
+        auto out = dest[0];
+        for (int i = (width - 1), out_i = ((width - 1) * 2); i >= 0; --i, out_i -= 2)
+        {
+            auto row_offset = i * height;
+            for (int j = 0; j < height; ++j)
+            {
+                auto val = *(reinterpret_cast<const lsb_msb*>(&out[(row_offset + j)]));
+                auto out_index = out_i * height + j;
+                out[out_index] = val.lsb << 4;
+                out[out_index + height] = val.msb << 4;
+            }
+        }
+    }
+
+    //// Processing routines////
     rotation_transform::rotation_transform(rs2_format target_format, rs2_stream target_stream, rs2_extension extension_type)
         : rotation_transform("Rotation Transform", target_format, target_stream, extension_type)
     {}
@@ -22,7 +97,7 @@ namespace librealsense
         _stream_filter.stream = _target_stream;
     }
 
-    void rotation_transform::init(const rs2::frame* f)
+    void rotation_transform::init_profiles_info(const rs2::frame* f)
     {
         auto p = f->get_profile();
         if (p.get() != _source_stream_profile.get())
@@ -38,11 +113,6 @@ namespace librealsense
         }
     }
 
-    rs2::frame rotation_transform::process_frame(const rs2::frame_source & source, const rs2::frame & f)
-    {
-        return pre_process_frame(source, f, unpack_rotated_optimized);
-    }
-
     depth_rotation_transform::depth_rotation_transform() :
         depth_rotation_transform("Depth Rotation Transform")
     {}
@@ -50,6 +120,13 @@ namespace librealsense
     depth_rotation_transform::depth_rotation_transform(const char * name)
         : rotation_transform(name, RS2_FORMAT_Z16, RS2_STREAM_DEPTH, RS2_EXTENSION_DEPTH_FRAME)
     {}
+
+    void depth_rotation_transform::process_function(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        int rotated_width = height;
+        int rotated_height = width;
+        unpack_l500_image_optimized<2>(dest, source, rotated_width, rotated_height, actual_size);
+    }
 
     ir_rotation_transform::ir_rotation_transform() :
         ir_rotation_transform("IR Rotation Transform")
@@ -59,6 +136,13 @@ namespace librealsense
         : rotation_transform(name, RS2_FORMAT_Y8, RS2_STREAM_INFRARED, RS2_EXTENSION_VIDEO_FRAME)
     {}
 
+    void ir_rotation_transform::process_function(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        int rotated_width = height;
+        int rotated_height = width;
+        unpack_l500_image_optimized<1>(dest, source, rotated_width, rotated_height, actual_size);
+    }
+
     confidence_rotation_transform::confidence_rotation_transform() :
         confidence_rotation_transform("Confidence Rotation Transform")
     {}
@@ -66,4 +150,13 @@ namespace librealsense
     confidence_rotation_transform::confidence_rotation_transform(const char * name)
         : rotation_transform(name, RS2_FORMAT_RAW8, RS2_STREAM_CONFIDENCE, RS2_EXTENSION_VIDEO_FRAME)
     {}
+
+    void confidence_rotation_transform::process_function(byte * const dest[], const byte * source, int width, int height, int actual_size)
+    {
+        int rotated_width = height;
+        int rotated_height = width;
+
+        // Workaround: the height is given by bytes and not by pixels.
+        unpack_confidence(dest, source, rotated_width / 2, rotated_height, actual_size);
+    }
 }

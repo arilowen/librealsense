@@ -4,8 +4,6 @@
 #pragma once
 
 #include "synthetic-stream.h"
-#include "option.h"
-#include "image.h"
 
 namespace librealsense
 {
@@ -25,7 +23,7 @@ namespace librealsense
     protected:
         yuy2_converter(const char* name, rs2_format target_format) :
             color_converter(name, target_format) {};
-        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 
     class uyvy_converter : public color_converter
@@ -37,7 +35,7 @@ namespace librealsense
     protected:
         uyvy_converter(const char* name, rs2_format target_format, rs2_stream target_stream) :
             color_converter(name, target_format, target_stream) {};
-        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 
     class mjpeg_converter : public color_converter
@@ -49,19 +47,7 @@ namespace librealsense
     protected:
         mjpeg_converter(const char* name, rs2_format target_format) :
             color_converter(name, target_format) {};
-        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
-    };
-
-    class raw16_converter : public color_converter
-    {
-    public:
-        raw16_converter(rs2_format target_format) :
-            raw16_converter("RAW16 Converter", target_format) {};
-
-    protected:
-        raw16_converter(const char* name, rs2_format target_format) :
-            color_converter(name, target_format){};
-        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 
     class bgr_to_rgb : public color_converter
@@ -73,6 +59,6 @@ namespace librealsense
     protected:
         bgr_to_rgb(const char* name) :
             color_converter(name, RS2_FORMAT_RGB8, RS2_STREAM_INFRARED) {};
-        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 }

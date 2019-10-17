@@ -119,13 +119,13 @@ namespace librealsense
         smart_hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL} },
-            []() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_ACCEL); }
+            []() { return std::make_shared<acceleration_transform>(); }
         );
 
         smart_hid_ep->register_processing_block(
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
             { {RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO} },
-            []() { return std::make_shared<motion_transform>(RS2_FORMAT_MOTION_XYZ32F, RS2_STREAM_GYRO); }
+            []() { return std::make_shared<gyroscope_transform>(); }
         );
         smart_hid_ep->register_option(RS2_OPTION_GLOBAL_TIME_ENABLED, enable_global_time_option);
         return smart_hid_ep;

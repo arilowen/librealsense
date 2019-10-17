@@ -15,28 +15,36 @@ namespace librealsense
         rotation_transform(const char* name, rs2_format target_format, rs2_stream target_stream, rs2_extension extension_type);
 
     protected:
-        void init(const rs2::frame* f) override;
-        rs2::frame process_frame(const rs2::frame_source& source, const rs2::frame& f) override;
+        void init_profiles_info(const rs2::frame* f) override;
     };
 
     class depth_rotation_transform : public rotation_transform
     {
     public:
         depth_rotation_transform();
+
+    protected:
         depth_rotation_transform(const char* name);
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 
     class ir_rotation_transform : public rotation_transform
     {
     public:
         ir_rotation_transform();
+
+    protected:
         ir_rotation_transform(const char* name);
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 
     class confidence_rotation_transform : public rotation_transform
     {
     public:
         confidence_rotation_transform();
+
+    protected:
         confidence_rotation_transform(const char* name);
+        void process_function(byte * const dest[], const byte * source, int width, int height, int actual_size) override;
     };
 }
