@@ -1310,6 +1310,8 @@ namespace librealsense
 
         _raw_sensor->set_source_owner(this->shared_from_this());
         _raw_sensor->open(resolved_req);
+
+        set_active_streams(requests);
     }
 
     void synthetic_sensor::close()
@@ -1352,8 +1354,12 @@ namespace librealsense
     {
         std::lock_guard<std::mutex> lock(_synthetic_configure_lock);
 
+        // Set the post-processing callback as the user callback.
+        // This callback might be modified by other object.
+        set_frames_callback(callback);
+
         // After processing callback
-        const auto&& output_cb = make_callback([&, callback](frame_holder f) {
+        const auto&& output_cb = make_callback([&](frame_holder f) {
             std::vector<frame_interface*> frames_to_process;
             frames_to_process.push_back(f.frame);
 
@@ -1381,7 +1387,7 @@ namespace librealsense
                         continue;
 
                     fr->acquire();
-                    callback->on_frame((rs2_frame*)fr);
+                    post_process_callback->on_frame((rs2_frame*)fr);
                 }
             }
         });
@@ -1405,7 +1411,7 @@ namespace librealsense
             pb->invoke(std::move(f));
         });
 
-        // call the processing block on the frame
+        // Call the processing block on the frame
         _raw_sensor->start(process_cb);
     }
 
@@ -1429,27 +1435,24 @@ namespace librealsense
 
     frame_callback_ptr synthetic_sensor::get_frames_callback() const
     {
-        // passthrough method to raw sensor
-        return _raw_sensor->get_frames_callback();
+        return post_process_callback;
     }
 
     void synthetic_sensor::set_frames_callback(frame_callback_ptr callback)
     {
-        // passthrough method to raw sensor
-        _raw_sensor->set_frames_callback(callback);
+        // This callback is mutable, might be modified.
+        // For instance, record_sensor modifies this callback in order to hook it to record frames.
+        post_process_callback = callback;
     }
+
     notifications_callback_ptr synthetic_sensor::get_notifications_callback() const
     {
         return _raw_sensor->get_notifications_callback();
     }
+
     void synthetic_sensor::register_notifications_callback(notifications_callback_ptr callback)
     {
         _raw_sensor->register_notifications_callback(callback);
-    }
-
-    stream_profiles synthetic_sensor::get_active_streams() const
-    {
-        return _raw_sensor->get_active_streams();
     }
 
     void synthetic_sensor::register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const

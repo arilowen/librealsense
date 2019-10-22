@@ -51,7 +51,7 @@ namespace librealsense
         void set_source_owner(std::shared_ptr<sensor_base> owner) { _source_owner = owner; } // will direct the source to the top in the source hierarchy.
         virtual stream_profiles init_stream_profiles() = 0;
         stream_profiles get_stream_profiles(int tag = profile_tag::PROFILE_TAG_ANY) const override;
-        virtual stream_profiles get_active_streams() const override;
+        stream_profiles get_active_streams() const override;
         notifications_callback_ptr get_notifications_callback() const override;
         void register_notifications_callback(notifications_callback_ptr callback) override;
         int register_before_streaming_changes_callback(std::function<void(bool)> callback) override;
@@ -148,7 +148,6 @@ namespace librealsense
         void set_frames_callback(frame_callback_ptr callback) override;
         notifications_callback_ptr get_notifications_callback() const override;
         void register_notifications_callback(notifications_callback_ptr callback) override;
-        stream_profiles get_active_streams() const override;
         void register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const override;
         bool is_streaming() const override;
 
@@ -166,6 +165,7 @@ namespace librealsense
 
         std::mutex _synthetic_configure_lock;
 
+        frame_callback_ptr post_process_callback;
         std::shared_ptr<sensor_base> _raw_sensor;
         std::vector<std::shared_ptr<processing_block_factory>> _pb_factories;
         std::unordered_map<processing_block_factory*, stream_profiles> pbf_supported_profiles;
