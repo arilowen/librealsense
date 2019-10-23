@@ -146,7 +146,6 @@ namespace librealsense
         std::shared_ptr<sensor_base> get_raw_sensor() const { return _raw_sensor; };
         frame_callback_ptr get_frames_callback() const override;
         void set_frames_callback(frame_callback_ptr callback) override;
-        notifications_callback_ptr get_notifications_callback() const override;
         void register_notifications_callback(notifications_callback_ptr callback) override;
         void register_metadata(rs2_frame_metadata_value metadata, std::shared_ptr<md_attribute_parser_base> metadata_parser) const override;
         bool is_streaming() const override;

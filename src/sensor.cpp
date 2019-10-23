@@ -1296,7 +1296,6 @@ namespace librealsense
             const stream_profiles&& print_current_resolved_reqs = { current_resolved_reqs.begin(), current_resolved_reqs.end() };
             LOG_DEBUG("Request: " << best_reqs << "\nResolved to: " << print_current_resolved_reqs);
         }
-        
         resolved_req = { resolved_req_set.begin(), resolved_req_set.end() };
         return resolved_req;
     }
@@ -1459,13 +1458,9 @@ namespace librealsense
         post_process_callback = callback;
     }
 
-    notifications_callback_ptr synthetic_sensor::get_notifications_callback() const
-    {
-        return _raw_sensor->get_notifications_callback();
-    }
-
     void synthetic_sensor::register_notifications_callback(notifications_callback_ptr callback)
     {
+        sensor_base::register_notifications_callback(callback);
         _raw_sensor->register_notifications_callback(callback);
     }
 
