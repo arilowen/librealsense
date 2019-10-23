@@ -1309,8 +1309,22 @@ namespace librealsense
         const auto&& resolved_req = resolve_requests(requests);
 
         _raw_sensor->set_source_owner(this->shared_from_this());
-        _raw_sensor->open(resolved_req);
-
+        try
+        {
+            _raw_sensor->open(resolved_req);
+        }
+        catch (const std::runtime_error& e)
+        {
+            // Throw a more informative exception
+            std::stringstream requests_info;
+            for (auto&& r : requests)
+            {
+                auto p = to_profile(r.get());
+                requests_info << "\tFormat: " + std::string(rs2_format_to_string(p.format)) << ", width: " << p.width << ", height: " << p.height << "\n";
+            }
+            throw recoverable_exception("Failed to resolve the request: \n" + requests_info.str()
+                , RS2_EXCEPTION_TYPE_INVALID_VALUE);
+        }
         set_active_streams(requests);
     }
 
