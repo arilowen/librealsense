@@ -21,6 +21,8 @@ import android.widget.Toast;
 import com.intel.realsense.librealsense.Config;
 import com.intel.realsense.librealsense.Device;
 import com.intel.realsense.librealsense.DeviceList;
+import com.intel.realsense.librealsense.Frame;
+import com.intel.realsense.librealsense.FrameCallback;
 import com.intel.realsense.librealsense.FrameSet;
 import com.intel.realsense.librealsense.GLRsSurfaceView;
 import com.intel.realsense.librealsense.Option;
@@ -203,7 +205,7 @@ public class PreviewActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFrameset(FrameSet frameSet) {
+            public void onFrameset(final FrameSet frameSet) {
                 mStreamingStats.onFrameset(frameSet);
                 if(statsToggle){
                     clearLables();
@@ -260,6 +262,7 @@ public class PreviewActivity extends AppCompatActivity {
                     return;
                 List<Sensor> sensors = device.querySensors();
                 for(Sensor s : sensors){
+                    Log.i(TAG, "onRadioButtonClicked: " + s.getValue(Option.HARDWARE_PRESET));
                     if(!s.supports(Option.EMITTER_ENABLED))
                         continue;
                     switch(view.getId()) {
