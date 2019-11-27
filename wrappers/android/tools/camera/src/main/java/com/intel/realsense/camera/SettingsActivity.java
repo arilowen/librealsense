@@ -1,9 +1,13 @@
 package com.intel.realsense.camera;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.util.Pair;
@@ -34,6 +38,8 @@ import java.util.TreeMap;
 public class SettingsActivity extends AppCompatActivity {
     private static final String TAG = "librs camera settings";
 
+    AppCompatActivity mContext;
+
     private static final int OPEN_FILE_REQUEST_CODE = 0;
     private static final int OPEN_FW_FILE_REQUEST_CODE = 1;
 
@@ -44,6 +50,7 @@ public class SettingsActivity extends AppCompatActivity {
     private static final int INDEX_UPDATE_UNSIGNED = 4;
     private static final int INDEX_TERMINAL = 5;
     private static final int INDEX_FW_LOG = 6;
+    private static final int INDEX_CREATE_FLASH_BACKUP = 7;
 
     private Device _device;
 
@@ -51,6 +58,7 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+        mContext = this;
     }
 
     @Override
@@ -122,6 +130,8 @@ public class SettingsActivity extends AppCompatActivity {
         boolean fw_logging_enabled = sharedPref.getBoolean(getString(R.string.fw_logging), false);
         settingsMap.put(INDEX_FW_LOG, fw_logging_enabled ? "Stop FW logging" : "Start FW logging");
 
+        settingsMap.put(INDEX_CREATE_FLASH_BACKUP, "Create FW backup");
+
         final String[] settings = new String[settingsMap.values().size()];
         settingsMap.values().toArray(settings);
         final ArrayAdapter adapter = new ArrayAdapter<>(this, R.layout.files_list_view, settings);
@@ -168,6 +178,14 @@ public class SettingsActivity extends AppCompatActivity {
                     case INDEX_FW_LOG: {
                         toggleFwLogging();
                         recreate();
+                        break;
+                    }
+                    case INDEX_CREATE_FLASH_BACKUP: {
+                        if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                            ActivityCompat.requestPermissions(mContext, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, FileUtilities.PERMISSIONS_REQUEST_WRITE);
+                        }
+                        Updatable upd = device.as(Extension.UPDATABLE);
+                        FileUtilities.saveFileToExternalDir("fwdump", upd.createFlashBackup());
                         break;
                     }
                     default:
