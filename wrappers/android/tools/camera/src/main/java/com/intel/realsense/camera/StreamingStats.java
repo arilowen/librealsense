@@ -1,6 +1,5 @@
 package com.intel.realsense.camera;
 
-import android.print.PrintAttributes;
 import android.util.Log;
 
 import com.intel.realsense.librealsense.Extension;
@@ -21,7 +20,9 @@ public class StreamingStats {
     private Map<Integer, Statistics> mStreamsMap = new HashMap<>();
     private Map<Integer, Statistics> mLastFrames = new HashMap<>();
 
-    private Boolean enableFrameDataLogs = true;
+    private Boolean isLogStatisticsEnabled = true;
+
+    public void setIsLogStatisticsEnabled(boolean b) { isLogStatisticsEnabled = b; }
 
     private void initStream(StreamProfile profile){
         String resolution = "";
@@ -60,9 +61,17 @@ public class StreamingStats {
                     initStream(profile);
                 if (mLastFrames.get(uid).mFrameNumber != fn) {
                     if(f.supportsMetadata(FrameMetadata.FRAME_EMITTER_MODE))
-                        mStreamsMap.get(uid).updateEmitterMetadata("" + f.getMetadata(FrameMetadata.FRAME_EMITTER_MODE));
+                        mStreamsMap.get(uid).mEmitter = String.valueOf(f.getMetadata(FrameMetadata.FRAME_EMITTER_MODE));
                     if(f.supportsMetadata(FrameMetadata.ACTUAL_EXPOSURE))
-                        mStreamsMap.get(uid).updateExposureMetadata("" + f.getMetadata(FrameMetadata.ACTUAL_EXPOSURE));
+                        mStreamsMap.get(uid).mExposure = String.valueOf(f.getMetadata(FrameMetadata.ACTUAL_EXPOSURE));
+                    if(f.supportsMetadata(FrameMetadata.AUTO_EXPOSURE))
+                        mStreamsMap.get(uid).mAutoExposureMode = String.valueOf(f.getMetadata(FrameMetadata.AUTO_EXPOSURE));
+                    if(f.supportsMetadata(FrameMetadata.GAIN_LEVEL))
+                        mStreamsMap.get(uid).mGain = String.valueOf(f.getMetadata(FrameMetadata.GAIN_LEVEL));
+                    if(f.supportsMetadata(FrameMetadata.FRAME_LASER_POWER))
+                        mStreamsMap.get(uid).mLaserPower = String.valueOf(f.getMetadata(FrameMetadata.FRAME_LASER_POWER));
+                    if(f.supportsMetadata(FrameMetadata.FRAME_LED_POWER))
+                        mStreamsMap.get(uid).mLedPower = String.valueOf(f.getMetadata(FrameMetadata.FRAME_LED_POWER));
                     mStreamsMap.get(uid).mFrameNumber = fn;
                     mStreamsMap.get(uid).mHWTimestamp = f.getTimestamp();
                     mStreamsMap.get(uid).mSWTimestamp = System.currentTimeMillis();
@@ -107,6 +116,10 @@ public class StreamingStats {
         private long mFirstFrameLatency = 0;
         private String mEmitter = "No data";
         private String mExposure = "No data";
+        private String mGain = "No data";
+        private String mAutoExposureMode = "No data";
+        private String mLaserPower = "No data";
+        private String mLedPower = "No data";
 
         public Statistics(String name) {
             mName = name;
@@ -133,22 +146,16 @@ public class StreamingStats {
             mFirstFrameLatency = other.mFirstFrameLatency;
             mEmitter = other.mEmitter;
             mExposure = other.mExposure;
-        }
-
-        public void updateEmitterMetadata(String metadata){
-            mEmitter = metadata;
-        }
-
-        public void updateExposureMetadata(String metadata){
-            mExposure = metadata;
+            mGain = other.mGain;
+            mAutoExposureMode = other.mAutoExposureMode;
+            mLaserPower = other.mLaserPower;
+            mLedPower = other.mLedPower;
         }
 
         public void reset(){
             mStartTime = mBaseTime = System.currentTimeMillis();
             mFirstFrameLatency = 0;
         }
-
-        public void toggleFrameDataLogState() { enableFrameDataLogs = !enableFrameDataLogs; }
 
         public float getFps(){
             return mFps;
@@ -203,7 +210,7 @@ public class StreamingStats {
             mHWTimestampDiff = mHWTimestamp - mLastFrame.mHWTimestamp;
             mSWTimestampDiff = mSWTimestamp - mLastFrame.mSWTimestamp;
 
-            if(enableFrameDataLogs)
+            if(isLogStatisticsEnabled)
                 logFrameData();
         }
 
@@ -217,7 +224,13 @@ public class StreamingStats {
                     mHWTimestamp + ", " +
                     mHWTimestampDiff + ", " +
                     mSWTimestamp + ", " +
-                    mSWTimestampDiff;
+                    mSWTimestampDiff + ", " +
+                    mAutoExposureMode + ", " +
+                    mExposure + ", " +
+                    mGain + ", " +
+                    mLaserPower + ", " +
+                    mEmitter + ", " +
+                    mLedPower;
             Log.i(DATA_LOG_TAG, data);
         }
     }

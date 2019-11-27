@@ -13,6 +13,8 @@ import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.RadioButton;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -45,6 +47,7 @@ public class PreviewActivity extends AppCompatActivity {
     private TextView mControlsButton;
 
     private TextView mStatsView;
+    private CheckBox mStatisticsCheckbox;
     private Map<Integer, TextView> mLabels;
 
     private Streamer mStreamer;
@@ -81,6 +84,7 @@ public class PreviewActivity extends AppCompatActivity {
         mStatisticsButton = findViewById(R.id.preview_stats_button);
         m3dButton = findViewById(R.id.preview_3d_button);
         mControlsButton = findViewById(R.id.controls_button);
+        mStatisticsCheckbox = findViewById(R.id.statistics_log_checkbox);
 
         mStartRecordFab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -131,6 +135,12 @@ public class PreviewActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 toggleStats();
+            }
+        });
+        mStatisticsCheckbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                mStreamingStats.setIsLogStatisticsEnabled(isChecked);
             }
         });
         SharedPreferences sharedPref = getSharedPreferences(getString(R.string.app_settings), Context.MODE_PRIVATE);
