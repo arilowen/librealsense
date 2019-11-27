@@ -15,7 +15,7 @@ import java.util.Map;
 
 public class StreamingStats {
     private static final String TAG = "librs camera streamer";
-    private static final String DATA_LOG_TAG = "FRAME DATA LOG";
+    private static final String DATA_LOG_TAG = "FRAME_DATA_LOG";
 
     private Map<Integer, Statistics> mStreamsMap = new HashMap<>();
     private Map<Integer, Statistics> mLastFrames = new HashMap<>();
@@ -107,10 +107,10 @@ public class StreamingStats {
         private float mFps = 0;
         private long mFrameCount = 0;
         private long mFrameLoss = 0;
-        private double mHWTimestamp = 0;
-        private double mHWTimestampDiff = 0;
-        private double mSWTimestamp = 0;
-        private double mSWTimestampDiff = 0;
+        private long mHWTimestamp = 0;
+        private long mHWTimestampDiff = 0;
+        private long mSWTimestamp = 0;
+        private long mSWTimestampDiff = 0;
         private int mFrameNumber = 0;
         private long mTotalFrameCount = 0;
         private long mFirstFrameLatency = 0;

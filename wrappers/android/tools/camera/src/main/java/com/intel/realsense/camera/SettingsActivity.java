@@ -185,7 +185,7 @@ public class SettingsActivity extends AppCompatActivity {
                             ActivityCompat.requestPermissions(mContext, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, FileUtilities.PERMISSIONS_REQUEST_WRITE);
                         }
                         Updatable upd = device.as(Extension.UPDATABLE);
-                        FileUtilities.saveFileToExternalDir("fwdump", upd.createFlashBackup());
+                        FileUtilities.saveFileToExternalDir("fwdump.bin", upd.createFlashBackup());
                         break;
                     }
                     default:
