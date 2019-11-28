@@ -8,6 +8,7 @@ import com.intel.realsense.librealsense.FrameCallback;
 import com.intel.realsense.librealsense.FrameMetadata;
 import com.intel.realsense.librealsense.FrameSet;
 import com.intel.realsense.librealsense.StreamProfile;
+import com.intel.realsense.librealsense.TimestampDomain;
 import com.intel.realsense.librealsense.VideoStreamProfile;
 
 import java.util.HashMap;
