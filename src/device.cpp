@@ -13,13 +13,13 @@ std::shared_ptr<matcher> matcher_factory::create(rs2_matchers matcher, std::vect
     switch (matcher)
     {
     case RS2_MATCHER_DI:
-        return create_DI_matcher(profiles);
+        return create_timestamp_matcher(profiles);
     case RS2_MATCHER_DI_C:
-        return create_DI_C_matcher(profiles);
+        return create_timestamp_matcher(profiles);
     case RS2_MATCHER_DLR_C:
-        return create_DLR_C_matcher(profiles);
+        return create_timestamp_matcher(profiles);
     case RS2_MATCHER_DLR:
-        return create_DLR_matcher(profiles);
+        return create_timestamp_matcher(profiles);
     case RS2_MATCHER_DEFAULT:default:
         LOG_DEBUG("Created default matcher");
         return create_timestamp_matcher(profiles);
