@@ -1,9 +1,13 @@
 package com.intel.realsense.camera;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.util.Pair;
@@ -34,13 +38,19 @@ import java.util.TreeMap;
 public class SettingsActivity extends AppCompatActivity {
     private static final String TAG = "librs camera settings";
 
+    AppCompatActivity mContext;
+
     private static final int OPEN_FILE_REQUEST_CODE = 0;
+    private static final int OPEN_FW_FILE_REQUEST_CODE = 1;
 
     private static final int INDEX_DEVICE_INFO = 0;
     private static final int INDEX_ADVANCE_MODE = 1;
     private static final int INDEX_PRESETS = 2;
     private static final int INDEX_UPDATE = 3;
     private static final int INDEX_UPDATE_UNSIGNED = 4;
+    private static final int INDEX_TERMINAL = 5;
+    private static final int INDEX_FW_LOG = 6;
+    private static final int INDEX_CREATE_FLASH_BACKUP = 7;
 
     private Device _device;
 
@@ -48,6 +58,7 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+        mContext = this;
     }
 
     @Override
@@ -113,6 +124,14 @@ public class SettingsActivity extends AppCompatActivity {
             settingsMap.put(INDEX_ADVANCE_MODE,"Disable advanced mode");
             settingsMap.put(INDEX_PRESETS,"Presets");
         }
+        settingsMap.put(INDEX_TERMINAL,"Terminal");
+
+        SharedPreferences sharedPref = getSharedPreferences(getString(R.string.app_settings), Context.MODE_PRIVATE);
+        boolean fw_logging_enabled = sharedPref.getBoolean(getString(R.string.fw_logging), false);
+        settingsMap.put(INDEX_FW_LOG, fw_logging_enabled ? "Stop FW logging" : "Start FW logging");
+
+        settingsMap.put(INDEX_CREATE_FLASH_BACKUP, "Create FW backup");
+
         final String[] settings = new String[settingsMap.values().size()];
         settingsMap.values().toArray(settings);
         final ArrayAdapter adapter = new ArrayAdapter<>(this, R.layout.files_list_view, settings);
@@ -149,6 +168,24 @@ public class SettingsActivity extends AppCompatActivity {
                         Intent intent = new Intent(SettingsActivity.this, FileBrowserActivity.class);
                         intent.putExtra(getString(R.string.browse_folder), getString(R.string.realsense_folder) + File.separator +  "firmware");
                         startActivityForResult(intent, OPEN_FILE_REQUEST_CODE);
+                        break;
+                    }
+                    case INDEX_TERMINAL: {
+                        Intent intent = new Intent(SettingsActivity.this, TerminalActivity.class);
+                        startActivity(intent);
+                        break;
+                    }
+                    case INDEX_FW_LOG: {
+                        toggleFwLogging();
+                        recreate();
+                        break;
+                    }
+                    case INDEX_CREATE_FLASH_BACKUP: {
+                        if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                            ActivityCompat.requestPermissions(mContext, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, FileUtilities.PERMISSIONS_REQUEST_WRITE);
+                        }
+                        Updatable upd = device.as(Extension.UPDATABLE);
+                        FileUtilities.saveFileToExternalDir("fwdump.bin", upd.createFlashBackup());
                         break;
                     }
                     default:
@@ -229,24 +266,49 @@ public class SettingsActivity extends AppCompatActivity {
         return lines.toArray(new StreamProfileSelector[lines.size()]);
     }
 
+    void toggleFwLogging(){
+        SharedPreferences sharedPref = getSharedPreferences(getString(R.string.app_settings), Context.MODE_PRIVATE);
+        boolean fw_logging_enabled = sharedPref.getBoolean(getString(R.string.fw_logging), false);
+        String fw_logging_file_path = sharedPref.getString(getString(R.string.fw_logging_file_path), "");
+        if(fw_logging_file_path.equals("")){
+            Intent intent = new Intent(SettingsActivity.this, FileBrowserActivity.class);
+            intent.putExtra(getString(R.string.browse_folder), getString(R.string.realsense_folder) + File.separator +  "hw");
+            startActivityForResult(intent, OPEN_FW_FILE_REQUEST_CODE);
+            return;
+        }
+        if(fw_logging_enabled)
+            RsContext.stopFwLogging();
+        else
+            RsContext.startFwLogging(fw_logging_file_path);
+        SharedPreferences.Editor editor = sharedPref.edit();
+        editor.putBoolean(getString(R.string.fw_logging), !fw_logging_enabled);
+        editor.commit();
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == OPEN_FILE_REQUEST_CODE && resultCode == RESULT_OK) {
-            if (data != null) {
-                String filePath = data.getStringExtra(getString(R.string.intent_extra_file_path));
+        if (resultCode != RESULT_OK || data == null)
+            return;
+        String filePath = data.getStringExtra(getString(R.string.intent_extra_file_path));
+        switch (requestCode){
+            case OPEN_FILE_REQUEST_CODE:{
                 FirmwareUpdateProgressDialog fud = new FirmwareUpdateProgressDialog();
                 Bundle bundle = new Bundle();
                 bundle.putString(getString(R.string.firmware_update_file_path), filePath);
                 fud.setArguments(bundle);
                 fud.setCancelable(false);
                 fud.show(getFragmentManager(), null);
+                break;
             }
-        }
-        else{
-            Intent intent = new Intent();
-            setResult(RESULT_OK, intent);
-            finish();
+            case OPEN_FW_FILE_REQUEST_CODE: {
+                SharedPreferences sharedPref = getSharedPreferences(getString(R.string.app_settings), Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = sharedPref.edit();
+                editor.putString(getString(R.string.fw_logging_file_path), filePath);
+                editor.commit();
+                toggleFwLogging();
+                break;
+            }
         }
     }
 }

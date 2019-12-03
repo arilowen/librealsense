@@ -13,15 +13,26 @@ import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
+import android.widget.RadioButton;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.intel.realsense.librealsense.Config;
+import com.intel.realsense.librealsense.Device;
+import com.intel.realsense.librealsense.DeviceList;
+import com.intel.realsense.librealsense.Frame;
+import com.intel.realsense.librealsense.FrameCallback;
 import com.intel.realsense.librealsense.FrameSet;
 import com.intel.realsense.librealsense.GLRsSurfaceView;
+import com.intel.realsense.librealsense.Option;
+import com.intel.realsense.librealsense.RsContext;
+import com.intel.realsense.librealsense.Sensor;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class PreviewActivity extends AppCompatActivity {
@@ -33,8 +44,10 @@ public class PreviewActivity extends AppCompatActivity {
     private TextView mSettingsButton;
     private TextView mStatisticsButton;
     private TextView m3dButton;
+    private TextView mControlsButton;
 
     private TextView mStatsView;
+    private CheckBox mStatisticsCheckbox;
     private Map<Integer, TextView> mLabels;
 
     private Streamer mStreamer;
@@ -70,6 +83,8 @@ public class PreviewActivity extends AppCompatActivity {
         mSettingsButton = findViewById(R.id.preview_settings_button);
         mStatisticsButton = findViewById(R.id.preview_stats_button);
         m3dButton = findViewById(R.id.preview_3d_button);
+        mControlsButton = findViewById(R.id.controls_button);
+        mStatisticsCheckbox = findViewById(R.id.statistics_log_checkbox);
 
         mStartRecordFab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -108,10 +123,24 @@ public class PreviewActivity extends AppCompatActivity {
                 editor.commit();
             }
         });
+        mControlsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                ControlsDialog cd = new ControlsDialog();
+                cd.setCancelable(true);
+                cd.show(getFragmentManager(), null);
+            }
+        });
         mStatisticsButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 toggleStats();
+            }
+        });
+        mStatisticsCheckbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                mStreamingStats.setIsLogStatisticsEnabled(isChecked);
             }
         });
         SharedPreferences sharedPref = getSharedPreferences(getString(R.string.app_settings), Context.MODE_PRIVATE);
@@ -186,7 +215,7 @@ public class PreviewActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFrameset(FrameSet frameSet) {
+            public void onFrameset(final FrameSet frameSet) {
                 mStreamingStats.onFrameset(frameSet);
                 if(statsToggle){
                     clearLables();
@@ -229,5 +258,54 @@ public class PreviewActivity extends AppCompatActivity {
             mStreamer.stop();
         if(mGLSurfaceView != null)
             mGLSurfaceView.clear();
+    }
+
+    public void onRadioButtonClicked(View view) {
+        boolean checked = ((RadioButton) view).isChecked();
+
+        if(!checked)
+            return;
+        RsContext ctx = new RsContext();
+        try(DeviceList devices = ctx.queryDevices()) {
+            try(Device device = devices.createDevice(0)){
+                if(device == null)
+                    return;
+                List<Sensor> sensors = device.querySensors();
+                for(Sensor s : sensors){
+                    Log.i(TAG, "onRadioButtonClicked: " + s.getValue(Option.HARDWARE_PRESET));
+                    if(!s.supports(Option.EMITTER_ENABLED))
+                        continue;
+                    switch(view.getId()) {
+                        case R.id.radio_no_projector:{
+                            s.setValue(Option.EMITTER_ENABLED, 0);
+                            break;
+                        }
+                        case R.id.radio_laser:{
+                            s.setValue(Option.EMITTER_ENABLED, 1);
+                            break;
+                        }
+                        case R.id.radio_laser_auto:{
+                            s.setValue(Option.EMITTER_ENABLED, 2);
+                            break;
+                        }
+                        case R.id.radio_led:{
+                            s.setValue(Option.EMITTER_ENABLED, 3);
+                            break;
+                        }
+                        case R.id.radio_custom:{
+                            s.setValue(Option.HARDWARE_PRESET, 0);
+                            break;
+                        }
+                        case R.id.radio_burst:{
+                            s.setValue(Option.HARDWARE_PRESET, 2);
+                            break;
+                        }
+                    }
+                }
+            } catch(Exception e){
+                Log.e(TAG, "Failed to set controls: " + e.getMessage());
+                Toast.makeText(this, "Failed to set controls", Toast.LENGTH_LONG).show();
+            }
+        }
     }
 }
