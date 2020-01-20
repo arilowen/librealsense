@@ -15,6 +15,9 @@ void init_device(py::module &m) {
         .def("first_depth_sensor", [](rs2::device& self) { return self.first<rs2::depth_sensor>(); }) // No docstring in C++
         .def("first_roi_sensor", [](rs2::device& self) { return self.first<rs2::roi_sensor>(); }) // No docstring in C++
         .def("first_pose_sensor", [](rs2::device& self) { return self.first<rs2::pose_sensor>(); }) // No docstring in C++
+        .def("first_color_sensor", [](rs2::device& self) { return self.first<rs2::color_sensor>(); }) // No docstring in C++
+        .def("first_motion_sensor", [](rs2::device& self) { return self.first<rs2::motion_sensor>(); }) // No docstring in C++
+        .def("first_fisheye_sensor", [](rs2::device& self) { return self.first<rs2::fisheye_sensor>(); }) // No docstring in C++
         .def("supports", &rs2::device::supports, "Check if specific camera info is supported.", "info"_a)
         .def("get_info", &rs2::device::get_info, "Retrieve camera specific information, "
              "like versions of various internal components", "info"_a)
@@ -27,6 +30,7 @@ void init_device(py::module &m) {
         .def(BIND_DOWNCAST(device, tm2))
         .def(BIND_DOWNCAST(device, updatable))
         .def(BIND_DOWNCAST(device, update_device))
+        .def(BIND_DOWNCAST(device, auto_calibrated_device))
         .def("__repr__", [](const rs2::device &self) {
             std::stringstream ss;
             ss << "<" SNAME ".device: " << self.get_info(RS2_CAMERA_INFO_NAME)
@@ -61,6 +65,32 @@ void init_device(py::module &m) {
              "Update an updatable device to the provided firmware. This call is executed on the caller's thread and it supports progress notifications via the callback.",
              "fw_image"_a, "callback"_a);
 
+    py::class_<rs2::auto_calibrated_device, rs2::device> auto_calibrated_device(m, "auto_calibrated_device");
+    auto_calibrated_device.def(py::init<rs2::device>(), "device"_a)
+        .def("write_calibration", &rs2::auto_calibrated_device::write_calibration, "Write calibration that was set by set_calibration_table to device's EEPROM.")
+        .def("run_on_chip_calibration", [](rs2::auto_calibrated_device& self, std::string json_content, int timeout_ms)
+        { 
+            float health;
+            return py::make_tuple(self.run_on_chip_calibration(json_content, &health, timeout_ms), health);
+        },"This will improve the depth noise (plane fit RMS). This call is executed on the caller's thread.","json_content"_a, "timeout_ms"_a, py::call_guard<py::gil_scoped_release>())
+        .def("run_on_chip_calibration", [](rs2::auto_calibrated_device& self, std::string json_content, std::function<void(float)> f, int timeout_ms)
+        {
+            float health;
+            return py::make_tuple(self.run_on_chip_calibration(json_content, &health, f, timeout_ms), health);
+        },"This will improve the depth noise (plane fit RMS). This call is executed on the caller's thread and it supports progress notifications via the callback.", "json_content"_a, "callback"_a, "timeout_ms"_a, py::call_guard<py::gil_scoped_release>())
+        .def("run_tare_calibration", [](const rs2::auto_calibrated_device& self, float ground_truth_mm, std::string json_content, int timeout_ms)
+        {
+            return self.run_tare_calibration(ground_truth_mm, json_content, timeout_ms);
+        }, "This will adjust camera absolute distance to flat target. This call is executed on the caller's thread and it supports progress notifications via the callback.", "ground_truth_mm"_a, "json_content"_a, "timeout_ms"_a, py::call_guard<py::gil_scoped_release>())
+        .def("run_tare_calibration", [](const rs2::auto_calibrated_device& self, float ground_truth_mm, std::string json_content, std::function<void(float)> callback, int timeout_ms)
+        {
+            return self.run_tare_calibration(ground_truth_mm, json_content, callback, timeout_ms);
+        }, "This will adjust camera absolute distance to flat target. This call is executed on the caller's thread.", "ground_truth_mm"_a, "json_content"_a, "callback"_a, "timeout_ms"_a, py::call_guard<py::gil_scoped_release>())
+        .def("get_calibration_table", &rs2::auto_calibrated_device::get_calibration_table, "Read current calibration table from flash.")
+        .def("set_calibration_table", &rs2::auto_calibrated_device::set_calibration_table, "Set current table to dynamic area.")
+        .def("reset_to_factory_calibration", &rs2::auto_calibrated_device::reset_to_factory_calibration, "Reset device to factory calibration.");
+
+
     py::class_<rs2::debug_protocol> debug_protocol(m, "debug_protocol"); // No docstring in C++
     debug_protocol.def(py::init<rs2::device>())
         .def("send_and_receive_raw_data", &rs2::debug_protocol::send_and_receive_raw_data,
@@ -93,14 +123,16 @@ void init_device(py::module &m) {
         .def("front", &rs2::device_list::front) // No docstring in C++
         .def("back", &rs2::device_list::back); // No docstring in C++
 
-    py::class_<rs2::tm2, rs2::device> tm2(m, "tm2"); // No docstring in C++
+    py::class_<rs2::tm2, rs2::device> tm2(m, "tm2", "The tm2 class is an interface for T2XX devices, such as T265.\n"
+                                                    "For T265, it provides RS2_STREAM_FISHEYE(2), RS2_STREAM_GYRO, "
+                                                    "RS2_STREAM_ACCEL, and RS2_STREAM_POSE streams, and contains the following sensors:\n"
+                                                    "-pose_sensor: map and relocalization functions.\n"
+                                                    "-wheel_odometer: input for odometry data.");
     tm2.def(py::init<rs2::device>(), "device"_a)
         .def("enable_loopback", &rs2::tm2::enable_loopback, "Enter the given device into "
              "loopback operation mode that uses the given file as input for raw data", "filename"_a)
         .def("disable_loopback", &rs2::tm2::disable_loopback, "Restores the given device into normal operation mode")
         .def("is_loopback_enabled", &rs2::tm2::is_loopback_enabled, "Checks if the device is in loopback mode or not")
-        .def("connect_controller", &rs2::tm2::connect_controller, "Connects to a given tm2 controller", "mac_address"_a)
-        .def("disconnect_controller", &rs2::tm2::disconnect_controller, "Disconnects a given tm2 controller", "id"_a)
         .def("set_intrinsics", &rs2::tm2::set_intrinsics, "Set camera intrinsics", "sensor_id"_a, "intrinsics"_a)
         .def("set_extrinsics", &rs2::tm2::set_extrinsics, "Set camera extrinsics", "from_stream"_a, "from_id"_a, "to_stream"_a, "to_id"_a, "extrinsics"_a)
         .def("set_motion_device_intrinsics", &rs2::tm2::set_motion_device_intrinsics, "Set motion device intrinsics", "stream_type"_a, "motion_intrinsics"_a)

@@ -345,6 +345,54 @@ namespace rs2
             && std::string(lhs.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER)) == rhs.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
     }
 
+    class color_sensor : public sensor
+    {
+    public:
+        color_sensor(sensor s)
+            : sensor(s.get())
+        {
+            rs2_error* e = nullptr;
+            if (rs2_is_sensor_extendable_to(_sensor.get(), RS2_EXTENSION_COLOR_SENSOR, &e) == 0 && !e)
+            {
+                _sensor.reset();
+            }
+            error::handle(e);
+        }
+        operator bool() const { return _sensor.get() != nullptr; }
+    };
+
+    class motion_sensor : public sensor
+    {
+    public:
+        motion_sensor(sensor s)
+            : sensor(s.get())
+        {
+            rs2_error* e = nullptr;
+            if (rs2_is_sensor_extendable_to(_sensor.get(), RS2_EXTENSION_MOTION_SENSOR, &e) == 0 && !e)
+            {
+                _sensor.reset();
+            }
+            error::handle(e);
+        }
+        operator bool() const { return _sensor.get() != nullptr; }
+    };
+
+    class fisheye_sensor : public sensor
+    {
+    public:
+        fisheye_sensor(sensor s)
+            : sensor(s.get())
+        {
+            rs2_error* e = nullptr;
+            if (rs2_is_sensor_extendable_to(_sensor.get(), RS2_EXTENSION_FISHEYE_SENSOR, &e) == 0 && !e)
+            {
+                _sensor.reset();
+            }
+            error::handle(e);
+        }
+        operator bool() const { return _sensor.get() != nullptr; }
+    };
+
     class roi_sensor : public sensor
     {
     public:
@@ -449,10 +497,15 @@ namespace rs2
             error::handle(e);
         }
 
-        /** Load SLAM localization map from host to device
-        * \param[in] lmap_buf   localization map blob
-        * \return true on success
-        */
+        /**
+         * Load relocalization map onto device. Only one relocalization map can be imported at a time;
+         * any previously existing map will be overwritten.
+         * The imported map exists simultaneously with the map created during the most recent tracking session after start(),
+         * and they are merged after the imported map is relocalized.
+         * This operation must be done before start().
+         * \param[in] lmap_buf map data as a binary blob
+         * \return true if success
+         */
         bool import_localization_map(const std::vector<uint8_t>& lmap_buf) const
         {
             rs2_error* e = nullptr;
@@ -461,21 +514,22 @@ namespace rs2
             return !!res;
         }
 
-        /** Extract SLAM localization map from device and store on host
-        * \return - localization map blob
-        */
+        /**
+         * Get relocalization map that is currently on device, created and updated during most recent tracking session.
+         * Can be called before or after stop().
+         * \return map data as a binary blob
+         */
         std::vector<uint8_t> export_localization_map() const
         {
+            std::vector<uint8_t> results;
             rs2_error* e = nullptr;
-            std::shared_ptr<const rs2_raw_data_buffer> loc_map(
-                    rs2_export_localization_map(_sensor.get(), &e),
-                    rs2_delete_raw_data);
+            const rs2_raw_data_buffer *map = rs2_export_localization_map(_sensor.get(), &e);
             error::handle(e);
+            std::shared_ptr<const rs2_raw_data_buffer> loc_map(map, rs2_delete_raw_data);
 
             auto start = rs2_get_raw_data(loc_map.get(), &e);
             error::handle(e);
 
-            std::vector<uint8_t> results;
             if (start)
             {
                 auto size = rs2_get_raw_data_size(loc_map.get(), &e);
@@ -486,12 +540,16 @@ namespace rs2
             return results;
         }
 
-        /** Create a named reference frame anchored to a specific 3D pose
-        * \param[in] guid   String to designate the reference (limited to 127 chars)
-        * \param[in] pos    3D Pose position in meters
-        * \param[in] orient 3D Pose attitude (quaternion)
-        * \return true on success
-        */
+        /**
+         * Creates a named virtual landmark in the current map, known as static node.
+         * The static node's pose is provided relative to the origin of current coordinate system of device poses.
+         * This function fails if the current tracker confidence is below 3 (high confidence).
+         * \param[in] guid unique name of the static node (limited to 127 chars).
+         * If a static node with the same name already exists in the current map or the imported map, the static node is overwritten.
+         * \param[in] pos position of the static node in the 3D space.
+         * \param[in] orient_quat orientation of the static node in the 3D space, represented by a unit quaternion.
+         * \return true if success.
+         */
         bool set_static_node(const std::string& guid, const rs2_vector& pos, const rs2_quaternion& orient) const
         {
             rs2_error* e = nullptr;
@@ -501,12 +559,17 @@ namespace rs2
         }
 
 
-        /** Retrieve a named reference frame anchored to a specific 3D pose
-        * \param[in] guid       String to designate the reference (limited to 127 chars)
-        * \param[out] pos       3D Pose position in meters
-        * \param[out] orient    3D Pose attitude (quaternion)
-        * \return true on success
-        */
+        /**
+         * Gets the current pose of a static node that was created in the current map or in an imported map.
+         * Static nodes of imported maps are available after relocalizing the imported map.
+         * The static node's pose is returned relative to the current origin of coordinates of device poses.
+         * Thus, poses of static nodes of an imported map are consistent with current device poses after relocalization.
+         * This function fails if the current tracker confidence is below 3 (high confidence).
+         * \param[in] guid unique name of the static node (limited to 127 chars).
+         * \param[out] pos position of the static node in the 3D space.
+         * \param[out] orient_quat orientation of the static node in the 3D space, represented by a unit quaternion.
+         * \return true if success.
+         */
         bool get_static_node(const std::string& guid, rs2_vector& pos, rs2_quaternion& orient) const
         {
             rs2_error* e = nullptr;

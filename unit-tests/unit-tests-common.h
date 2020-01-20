@@ -5,9 +5,7 @@
 #define LIBREALSENSE_UNITTESTS_COMMON_H
 
 #include "catch/catch.hpp"
-#include "../include/librealsense2/rs.hpp"
-#include "../include/librealsense2/hpp/rs_context.hpp"
-#include "../include/librealsense2/hpp/rs_internal.hpp"
+
 #include <limits> // For std::numeric_limits
 #include <cmath> // For std::sqrt
 #include <cassert> // For assert
@@ -19,6 +17,13 @@
 #include <vector>
 #include <fstream>
 #include <array>
+
+#include "project-common.h"
+
+#include "stream.h"
+#include "../include/librealsense2/rs.hpp"
+#include "../include/librealsense2/hpp/rs_context.hpp"
+#include "../include/librealsense2/hpp/rs_internal.hpp"
 #include "../src/types.h"
 
 // noexcept is not accepted by Visual Studio 2013 yet, but noexcept(false) is require on throwing destructors on gcc and clang
@@ -33,8 +38,6 @@
 #else
 #define NOEXCEPT_FALSE noexcept(false)
 #endif
-
-
 
 struct stream_request
 {
@@ -55,6 +58,12 @@ struct stream_request
     }
 };
 
+struct resolution
+{
+    uint32_t width, height;
+};
+using resolution_func = std::function<resolution(resolution res)>;
+
 struct profile
 {
     rs2_stream stream;
@@ -63,6 +72,16 @@ struct profile
     int height;
     int index;
     int fps;
+    resolution_func stream_resolution;
+
+    profile(rs2_stream strm = RS2_STREAM_ANY,
+        rs2_format fmt = RS2_FORMAT_ANY,
+        int idx = 0,
+        int w = 0, int h = 0,
+        int framerate = 0,
+        resolution_func res_func = [](resolution res) { return res; }) :
+        format(fmt), stream(strm), index(idx), height(h), width(w), stream_resolution(res_func), fps(framerate)
+    {};
 
     bool operator==(const profile& other) const
     {
@@ -85,7 +104,7 @@ struct profile
 
 inline std::ostream& operator <<(std::ostream& stream, const profile& cap)
 {
-    stream << cap.stream << " " << cap.stream << " " << cap.format << " "
+    stream << cap.stream << " " << cap.format << " "
         << cap.width << " " << cap.height << " " << cap.index << " " << cap.fps;
     return stream;
 }
@@ -96,6 +115,27 @@ struct device_profiles
     int fps;
     bool sync;
 };
+
+inline profile to_profile(const rs2::stream_profile sp)
+{
+    auto fps = static_cast<uint32_t>(sp.fps());
+    if (auto vid = sp.as<const rs2::video_stream_profile>())
+    {
+        return { sp.stream_type(), sp.format(), sp.stream_index(), (int)vid.width(), (int)vid.height(), (int)fps };
+    }
+
+    return { sp.stream_type(), sp.format(), sp.stream_index(), 0, 0, (int)fps };
+}
+
+inline std::vector<profile> to_profiles(std::vector<rs2::stream_profile> profiles)
+{
+    std::vector<profile> result;
+    for (auto&& p : profiles)
+    {
+        result.push_back(to_profile(p));
+    }
+    return result;
+}
 
 inline std::vector<profile>  configure_all_supported_streams(rs2::sensor& sensor, int width = 640, int height = 480, int fps = 60)
 {
@@ -117,39 +157,39 @@ inline std::vector<profile>  configure_all_supported_streams(rs2::sensor& sensor
     for (auto profile : all_profiles)
     {
         if (std::find_if(all_modes.begin(), all_modes.end(), [&](rs2::stream_profile p)
-        {
-            if (auto  video = p.as<rs2::video_stream_profile>())
             {
-                if (p.fps() == profile.fps &&
-                    p.stream_index() == profile.index &&
-                    p.stream_type() == profile.stream &&
-                    p.format() == profile.format &&
-                    video.width() == profile.width &&
-                    video.height() == profile.height)
-                {
-                    modes.push_back(p);
-                    return true;
-                }
-            }
-            else
-            {
-                if (auto  motion = p.as<rs2::motion_stream_profile>())
+                if (auto  video = p.as<rs2::video_stream_profile>())
                 {
                     if (p.fps() == profile.fps &&
                         p.stream_index() == profile.index &&
                         p.stream_type() == profile.stream &&
-                        p.format() == profile.format)
+                        p.format() == profile.format &&
+                        video.width() == profile.width &&
+                        video.height() == profile.height)
                     {
                         modes.push_back(p);
                         return true;
                     }
                 }
                 else
-                    return false;
-            }
+                {
+                    if (auto  motion = p.as<rs2::motion_stream_profile>())
+                    {
+                        if (p.fps() == profile.fps &&
+                            p.stream_index() == profile.index &&
+                            p.stream_type() == profile.stream &&
+                            p.format() == profile.format)
+                        {
+                            modes.push_back(p);
+                            return true;
+                        }
+                    }
+                    else
+                        return false;
+                }
 
-            return false;
-        }) != all_modes.end())
+                return false;
+            }) != all_modes.end())
         {
             profiles.push_back(profile);
 
@@ -178,20 +218,6 @@ inline std::pair<std::vector<rs2::sensor>, std::vector<profile>> configure_all_s
     return{ sensors, profiles };
 }
 
-inline std::string space_to_underscore(const std::string& text) {
-    const std::string from = " ";
-    const std::string to = "__";
-    auto temp = text;
-    size_t start_pos = 0;
-    while ((start_pos = temp.find(from, start_pos)) != std::string::npos) {
-        temp.replace(start_pos, from.size(), to);
-        start_pos += to.size();
-    }
-    return temp;
-}
-
-#define SECTION_FROM_TEST_NAME space_to_underscore(Catch::getCurrentContext().getResultCapture()->getCurrentTestName()).c_str()
-
 //inline long long current_time()
 //{
 //    return (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() % 10000);
@@ -206,6 +232,9 @@ inline void disable_sensitive_options_for(rs2::sensor& sen)
 
     if (sen.supports(RS2_OPTION_ENABLE_AUTO_EXPOSURE))
         REQUIRE_NOTHROW(sen.set_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, 0));
+
+    if (sen.supports(RS2_OPTION_GLOBAL_TIME_ENABLED))
+        REQUIRE_NOTHROW(sen.set_option(RS2_OPTION_GLOBAL_TIME_ENABLED, 0));
 
     if (sen.supports(RS2_OPTION_EXPOSURE))
     {
@@ -271,39 +300,6 @@ inline dev_type get_PID(rs2::device& dev)
     }
 
     return designator;
-}
-
-class command_line_params
-{
-public:
-    command_line_params(int argc, char * const argv[])
-    {
-        for (auto i = 0; i < argc; i++)
-        {
-            _params.push_back(argv[i]);
-        }
-    }
-
-    char * const * get_argv() const { return _params.data(); }
-    char * get_argv(int i) const { return _params[i]; }
-    size_t get_argc() const { return _params.size(); }
-
-    static command_line_params& instance(int argc = 0, char * const argv[] = 0)
-    {
-        static command_line_params params(argc, argv);
-        return params;
-    }
-
-    bool _found_any_section = false;
-private:
-
-    std::vector<char*> _params;
-};
-
-inline bool file_exists(const std::string& filename)
-{
-    std::ifstream f(filename);
-    return f.good();
 }
 
 inline bool make_context(const char* id, rs2::context* ctx, std::string min_api_version = "0.0.0")
@@ -790,6 +786,56 @@ inline rs2::stream_profile get_profile_by_resolution_type(rs2::sensor& s, res_ty
     throw std::runtime_error(ss.str());
 }
 
+inline rs2::stream_profile get_profile_by(const rs2::sensor& s, librealsense::stream_profile request)
+{
+    auto&& sp = s.get_stream_profiles();
+    auto&& it = std::find_if(sp.begin(), sp.end(), [request](const rs2::stream_profile& sp_)
+        {
+            return librealsense::to_profile(sp_.get()->profile) == request;
+        });
+    REQUIRE(it != sp.end());
+    return *it;
+}
+
+inline rs2::device get_device_by(const std::string& product_line, const std::vector<rs2::device>& devices)
+{
+    auto&& device = std::find_if(devices.begin(), devices.end(), [product_line](const rs2::device& dev) 
+        {
+            return dev.get_info(RS2_CAMERA_INFO_PRODUCT_LINE) == product_line;
+        });
+    REQUIRE(device != devices.end());
+    return *device;
+}
+
+template<class T>
+inline std::string get_pid(const T& device)
+{
+    return device.get_info(RS2_CAMERA_INFO_PRODUCT_ID);
+}
+
+template<class T>
+inline std::string get_product_line(const T& device)
+{
+    return device.get_info(RS2_CAMERA_INFO_PRODUCT_LINE);
+}
+
+template<class T>
+inline std::string get_serial(const T& device)
+{
+    return device.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
+}
+
+template<class T>
+inline std::string get_fw_version(const T& device)
+{
+    return device.get_info(RS2_CAMERA_INFO_FIRMWARE_VERSION);
+}
+
+template<class T>
+inline std::string get_name(const T& device)
+{
+    return device.get_info(RS2_CAMERA_INFO_NAME);
+}
 
 enum special_folder
 {
@@ -799,6 +845,89 @@ enum special_folder
     user_videos,
     temp_folder
 };
+
+inline std::vector<uint32_t> split(const std::string& s, char delim) {
+    std::stringstream ss(s);
+    std::string item;
+    std::vector<uint32_t> tokens;
+    while (std::getline(ss, item, delim)) {
+        tokens.push_back(std::stoi(item, nullptr));
+    }
+    return tokens;
+}
+
+inline bool is_fw_version_newer(const std::string& current_fw, const uint32_t other_fw[4])
+{
+    auto fw = split(current_fw, '.');
+    if (fw[0] > other_fw[0])
+        return true;
+    if (fw[0] == other_fw[0] && fw[1] > other_fw[1])
+        return true;
+    if (fw[0] == other_fw[0] && fw[1] == other_fw[1] && fw[2] > other_fw[2])
+        return true;
+    if (fw[0] == other_fw[0] && fw[1] == other_fw[1] && fw[2] == other_fw[2] && fw[3] > other_fw[3])
+        return true;
+    if (fw[0] == other_fw[0] && fw[1] == other_fw[1] && fw[2] == other_fw[2] && fw[3] == other_fw[3])
+        return true;
+    return false;
+}
+
+inline bool is_fw_version_older(const std::string& current_fw, const uint32_t other_fw[4])
+{
+    auto fw = split(current_fw, '.');
+    if (fw[0] < other_fw[0])
+        return true;
+    if (fw[0] == other_fw[0] && fw[1] < other_fw[1])
+        return true;
+    if (fw[0] == other_fw[0] && fw[1] == other_fw[1] && fw[2] < other_fw[2])
+        return true;
+    if (fw[0] == other_fw[0] && fw[1] == other_fw[1] && fw[2] == other_fw[2] && fw[3] < other_fw[3])
+        return true;
+    if (fw[0] == other_fw[0] && fw[1] == other_fw[1] && fw[2] == other_fw[2] && fw[3] == other_fw[3])
+        return true;
+    return false;
+}
+
+inline bool is_fw_in_range(const std::string& current_fw, const uint32_t min_fw[4], const uint32_t max_fw[4])
+{
+    auto fw = split(current_fw, '.');
+    return is_fw_version_older(current_fw, max_fw) && is_fw_version_newer(current_fw, min_fw);
+}
+
+inline std::string generate_product_line_param(const std::string& param)
+{
+    rs2::context ctx;
+    auto devices = ctx.query_devices();
+    std::string generated_param = param;
+    for (auto&& device : devices)
+    {
+        auto pl = get_product_line(device);
+        pl.insert(pl.begin(), '[');
+        pl.insert(pl.begin(), ',');
+        pl.insert(pl.end(), ']');
+        generated_param.append(pl);
+    }
+    return generated_param;
+}
+
+namespace std {
+
+    template <>
+    struct hash<profile>
+    {
+        size_t operator()(const profile& k) const
+        {
+            using std::hash;
+
+            return (hash<uint32_t>()(k.height))
+                ^ (hash<uint32_t>()(k.width))
+                ^ (hash<uint32_t>()(k.fps))
+                ^ (hash<uint32_t>()(k.format))
+                ^ (hash<uint32_t>()(k.stream));
+        }
+    };
+}
+
 
 #ifdef _WIN32
 #include <windows.h>
@@ -847,6 +976,7 @@ inline std::string get_folder_path(special_folder f)
     }
     return res;
 }
+
 #endif //_WIN32
 
 #if defined __linux__ || defined __APPLE__

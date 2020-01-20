@@ -68,7 +68,7 @@ namespace rs2
 
         std::map<int, std::vector<uint8_t>> rv;
 
-        if ("" != FW_D4XX_FW_IMAGE_VERSION && !allow_rc_firmware)
+        if (strlen(FW_D4XX_FW_IMAGE_VERSION) && !allow_rc_firmware)
         {
             int size = 0;
             auto hex = fw_get_D4XX_FW_Image(size);
@@ -76,7 +76,7 @@ namespace rs2
             rv[RS2_PRODUCT_LINE_D400] = vec;
         }
 
-        if ("" != FW_D4XX_RC_IMAGE_VERSION && allow_rc_firmware)
+        if (strlen(FW_D4XX_RC_IMAGE_VERSION) && allow_rc_firmware)
         {
             int size = 0;
             auto hex = fw_get_D4XX_RC_Image(size);
@@ -84,7 +84,7 @@ namespace rs2
             rv[RS2_PRODUCT_LINE_D400] = vec;
         }
 
-        if ("" != FW_SR3XX_FW_IMAGE_VERSION)
+        if (strlen(FW_SR3XX_FW_IMAGE_VERSION))
         {
             int size = 0;
             auto hex = fw_get_SR3XX_FW_Image(size);
@@ -175,10 +175,10 @@ namespace rs2
         invoker invoke)
     {
         std::string serial = "";
-        if (_dev.supports(RS2_CAMERA_INFO_ASIC_SERIAL_NUMBER))
-            serial = _dev.get_info(RS2_CAMERA_INFO_ASIC_SERIAL_NUMBER);
+        if (_dev.supports(RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID))
+            serial = _dev.get_info(RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID);
         else
-            serial = _dev.query_sensors().front().get_info(RS2_CAMERA_INFO_ASIC_SERIAL_NUMBER);
+            serial = _dev.query_sensors().front().get_info(RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID);
 
         _model.related_notifications.clear();
 
@@ -226,9 +226,9 @@ namespace rs2
                             auto d = devs[j];
                             if (d.is<update_device>())
                             {
-                                if (d.supports(RS2_CAMERA_INFO_ASIC_SERIAL_NUMBER))
+                                if (d.supports(RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID))
                                 {
-                                    if (serial == d.get_info(RS2_CAMERA_INFO_ASIC_SERIAL_NUMBER))
+                                    if (serial == d.get_info(RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID))
                                     {
                                         dfu = d;
                                         return true;
@@ -286,9 +286,9 @@ namespace rs2
                 {
                     auto d = devs[j];
 
-                    if (d.query_sensors().size() && d.query_sensors().front().supports(RS2_CAMERA_INFO_ASIC_SERIAL_NUMBER))
+                    if (d.query_sensors().size() && d.query_sensors().front().supports(RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID))
                     {
-                        auto s = d.query_sensors().front().get_info(RS2_CAMERA_INFO_ASIC_SERIAL_NUMBER);
+                        auto s = d.query_sensors().front().get_info(RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID);
                         if (s == serial)
                         {
                             log("Discovered connection of the original device");

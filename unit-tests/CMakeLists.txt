@@ -9,12 +9,15 @@ find_package(Threads REQUIRED)
 set(DEPENDENCIES realsense2)
 
 set (unit_tests_sources
+    project-common.h
     unit-tests-live.cpp
     unit-tests-post-processing.cpp
     unit-tests-post-processing.h
     unit-tests-main.cpp
     unit-tests-common.h
     unit-tests-post-processing-from-bag.cpp
+    unit-tests-l500.cpp
+    unit-tests-expected.h
 )
 
 add_executable(live-test ${unit_tests_sources})

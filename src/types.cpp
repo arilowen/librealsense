@@ -2,13 +2,14 @@
 // Copyright(c) 2015 Intel Corporation. All Rights Reserved.
 
 #include "types.h"
-#include "core/streaming.h"
 
 #include <algorithm>
 #include <iomanip>
 #include <numeric>
 #include <fstream>
 #include <cmath>
+
+#include "core/streaming.h"
 #include "../include/librealsense2/hpp/rs_processing.hpp"
 
 #define STRCASE(T, X) case RS2_##T##_##X: {\
@@ -180,11 +181,16 @@ namespace librealsense
             CASE(POSE)
             CASE(POSE_SENSOR)
             CASE(WHEEL_ODOMETER)
+            CASE(GLOBAL_TIMER)
             CASE(UPDATABLE)
             CASE(UPDATE_DEVICE)
-            CASE(GLOBAL_TIMER)
             CASE(L500_DEPTH_SENSOR)
             CASE(TM2_SENSOR)
+            CASE(AUTO_CALIBRATED_DEVICE)
+            CASE(COLOR_SENSOR)
+            CASE(MOTION_SENSOR)
+            CASE(FISHEYE_SENSOR)
+            CASE(DEPTH_HUFFMAN_DECODER)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE
@@ -285,6 +291,9 @@ namespace librealsense
             CASE(ENABLE_POSE_JUMPING)
             CASE(ENABLE_DYNAMIC_CALIBRATION)
             CASE(DEPTH_OFFSET)
+            CASE(LED_POWER)
+            CASE(ZERO_ORDER_ENABLED)
+            CASE(ENABLE_MAP_PRESERVATION)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE
@@ -318,6 +327,12 @@ namespace librealsense
             CASE(Y10BPACK)
             CASE(DISTANCE)
             CASE(MJPEG)
+            CASE(Y8I)
+            CASE(Y12I)
+            CASE(INZI)
+            CASE(INVI)
+            CASE(W10)
+            CASE(Z16H)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE
@@ -356,6 +371,7 @@ namespace librealsense
             CASE(PRODUCT_LINE)
             CASE(USB_TYPE_DESCRIPTOR)
             CASE(ASIC_SERIAL_NUMBER)
+            CASE(FIRMWARE_UPDATE_ID)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE
@@ -395,7 +411,9 @@ namespace librealsense
             CASE(MANUAL_WHITE_BALANCE)
             CASE(POWER_LINE_FREQUENCY)
             CASE(LOW_LIGHT_COMPENSATION)
-
+            CASE(FRAME_EMITTER_MODE)
+            CASE(FRAME_LED_POWER)
+            CASE(RAW_FRAME_SIZE)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE
@@ -425,6 +443,7 @@ namespace librealsense
             CASE(HARDWARE_EVENT)
             CASE(UNKNOWN_ERROR)
             CASE(FIRMWARE_UPDATE_RECOMMENDED)
+            CASE(POSE_RELOCALIZATION)
         default: assert(!is_valid(value)); return UNKNOWN_VALUE;
         }
 #undef CASE
@@ -620,5 +639,17 @@ namespace librealsense
     {
         auto from = reinterpret_cast<uint8_t const*>(src);
         std::copy(from, from + size, reinterpret_cast<uint8_t*>(dst));
+    }
+
+    std::string stream_profile::to_string() const
+    {
+        std::stringstream s;
+        s << "Format: " << format << std::endl;
+        s << "Stream: " << stream << std::endl;
+        s << "Width: " << width << std::endl;
+        s << "Height: " << height << std::endl;
+        s << "Index: " << index << std::endl;
+        s << "Fps: " << fps << std::endl;
+        return s.str();
     }
 }

@@ -32,6 +32,7 @@ typedef enum rs2_camera_info {
     RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR            , /**< Designated USB specification: USB2/USB3 */
     RS2_CAMERA_INFO_PRODUCT_LINE                   , /**< Device product line D400/SR300/L500/T200 */
     RS2_CAMERA_INFO_ASIC_SERIAL_NUMBER             , /**< ASIC serial number */
+    RS2_CAMERA_INFO_FIRMWARE_UPDATE_ID             , /**< Firmware update ID */
     RS2_CAMERA_INFO_COUNT                            /**< Number of enumeration values. Not a valid input: intended to be used in for-loops. */
 } rs2_camera_info;
 const char* rs2_camera_info_to_string(rs2_camera_info info);
@@ -79,6 +80,12 @@ typedef enum rs2_format
     RS2_FORMAT_Y10BPACK        , /**< 16-bit per-pixel grayscale image unpacked from 10 bits per pixel packed ([8:8:8:8:2222]) grey-scale image. The data is unpacked to LSB and padded with 6 zero bits */
     RS2_FORMAT_DISTANCE        , /**< 32-bit float-point depth distance value.  */
     RS2_FORMAT_MJPEG           , /**< Bitstream encoding for video in which an image of each frame is encoded as JPEG-DIB   */
+    RS2_FORMAT_Y8I             , /**< 8-bit per pixel interleaved. 8-bit left, 8-bit right.  */
+    RS2_FORMAT_Y12I            , /**< 12-bit per pixel interleaved. 12-bit left, 12-bit right. Each pixel is stored in a 24-bit word in little-endian order. */
+    RS2_FORMAT_INZI            , /**< multi-planar Depth 16bit + IR 10bit.  */
+    RS2_FORMAT_INVI            , /**< 8-bit IR stream.  */
+    RS2_FORMAT_W10             , /**< Grey-scale image as a bit-packed array. 4 pixel data stream taking 5 bytes */
+    RS2_FORMAT_Z16H            , /**< Variable-length Huffman-compressed 16-bit depth values. */
     RS2_FORMAT_COUNT             /**< Number of enumeration values. Not a valid input: intended to be used in for-loops. */
 } rs2_format;
 const char* rs2_format_to_string(rs2_format format);

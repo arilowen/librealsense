@@ -41,9 +41,9 @@
 #include <utility>                          // For std::forward
 #include <limits>
 #include <iomanip>
-
 #include "backend.h"
 #include "concurrency.h"
+
 #if BUILD_EASYLOGGINGPP
 #include "../third-party/easyloggingpp/src/easylogging++.h"
 #endif // BUILD_EASYLOGGINGPP
@@ -620,15 +620,32 @@ namespace librealsense
     typedef std::tuple<uint32_t, int, size_t> native_pixel_format_tuple;
     typedef std::tuple<rs2_stream, int, rs2_format> output_tuple;
     typedef std::tuple<platform::stream_profile_tuple, native_pixel_format_tuple, std::vector<output_tuple>> request_mapping_tuple;
+    
+    struct resolution
+    {
+        uint32_t width, height;
+    };
+    using resolution_func = std::function<resolution(resolution res)>;
 
     struct stream_profile
     {
+        stream_profile(rs2_format fmt = RS2_FORMAT_ANY,
+            rs2_stream strm = RS2_STREAM_ANY,
+            int idx = 0,
+            uint32_t w = 0, uint32_t h = 0,
+            uint32_t framerate = 0,
+            resolution_func res_func = [](resolution res) { return res; }) :
+            format(fmt), stream(strm), index(idx), height(h), width(w), stream_resolution(res_func), fps(framerate)
+        {};
+
+        rs2_format format;
         rs2_stream stream;
         int index;
         uint32_t width, height, fps;
-        rs2_format format;
-    };
+        resolution_func stream_resolution; // Calculates the relevant resolution from the given backend resolution.
 
+        std::string to_string() const;
+    };
 
     inline bool operator==(const stream_profile& a,
         const stream_profile& b)
@@ -641,6 +658,19 @@ namespace librealsense
             (a.stream == b.stream);
     }
 
+    inline bool operator<(const stream_profile & lhs,
+        const stream_profile & rhs)
+    {
+        if (lhs.format != rhs.format) return lhs.format < rhs.format;
+        if (lhs.index != rhs.index)   return lhs.index  < rhs.index;
+        return lhs.stream < rhs.stream;
+    }
+
+    inline std::ostream& operator<<(std::ostream& s, const stream_profile& sp)
+    {
+        return s << sp.to_string();
+    }
+
     struct stream_descriptor
     {
         stream_descriptor() : type(RS2_STREAM_ANY), index(0) {}
@@ -649,13 +679,6 @@ namespace librealsense
         rs2_stream type;
         int index;
     };
-
-    struct resolution
-    {
-        uint32_t width, height;
-    };
-
-    using resolution_func = std::function<resolution(resolution res)>;
 
     struct stream_output {
         stream_output(stream_descriptor stream_desc_in,
@@ -674,7 +697,7 @@ namespace librealsense
     struct pixel_format_unpacker
     {
         bool requires_processing;
-        void(*unpack)(byte * const dest[], const byte * source, int width, int height, int actual_size);
+        void(*unpack)(byte * const dest[], const byte * source, int width, int height, int actual_size, int input_size);
         std::vector<stream_output> outputs;
 
         platform::stream_profile get_uvc_profile(const stream_profile& request, uint32_t fourcc, const std::vector<platform::stream_profile>& uvc_profiles) const
@@ -741,51 +764,7 @@ namespace librealsense
 
     };
 
-    struct native_pixel_format
-    {
-        uint32_t fourcc;
-        int plane_count;
-        size_t bytes_per_pixel;
-        std::vector<pixel_format_unpacker> unpackers;
-
-        size_t get_image_size(int width, int height) const { return width * height * plane_count * bytes_per_pixel; }
-
-        operator native_pixel_format_tuple() const
-        {
-            return std::make_tuple(fourcc, plane_count, bytes_per_pixel);
-        }
-    };
-
     class stream_profile_interface;
-
-    struct request_mapping
-    {
-        platform::stream_profile profile;
-        native_pixel_format* pf;
-        pixel_format_unpacker* unpacker;
-
-        // The request lists is there just for lookup and is not involved in object comparison
-        mutable std::vector<std::shared_ptr<stream_profile_interface>> original_requests;
-
-        operator request_mapping_tuple() const
-        {
-            return std::make_tuple(profile, *pf, *unpacker);
-        }
-
-        bool requires_processing() const { return unpacker->requires_processing; }
-
-    };
-
-    inline bool operator< (const request_mapping& first, const request_mapping& second)
-    {
-        return request_mapping_tuple(first) < request_mapping_tuple(second);
-    }
-
-    inline bool operator==(const request_mapping& a,
-        const request_mapping& b)
-    {
-        return (a.profile == b.profile) && (a.pf == b.pf) && (a.unpacker == b.unpacker);
-    }
 
     class frame_interface;
 
@@ -1509,6 +1488,9 @@ namespace librealsense
             polling(cancellable_timer);
         }), _devices_data()
         {
+            _devices_data = {   _backend->query_uvc_devices(),
+                                _backend->query_usb_devices(),
+                                _backend->query_hid_devices() };
         }
 
         ~polling_device_watcher()
@@ -1539,10 +1521,6 @@ namespace librealsense
         {
             stop();
             _callback = std::move(callback);
-            _devices_data = {   _backend->query_uvc_devices(),
-                                _backend->query_usb_devices(),
-                                _backend->query_hid_devices() };
-
             _active_object.start();
         }
 
@@ -1795,15 +1773,13 @@ namespace std {
     };
 
     template <>
-    struct hash<librealsense::request_mapping>
+    struct hash<rs2_format>
     {
-        size_t operator()(const librealsense::request_mapping& k) const
+        size_t operator()(const rs2_format& f) const
         {
             using std::hash;
 
-            return (hash<librealsense::platform::stream_profile>()(k.profile))
-                ^ (hash<librealsense::pixel_format_unpacker*>()(k.unpacker))
-                ^ (hash<librealsense::native_pixel_format*>()(k.pf));
+            return hash<uint32_t>()(f);
         }
     };
 }

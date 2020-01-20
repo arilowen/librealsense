@@ -191,6 +191,18 @@ namespace rs2
             static const char* vsync               { "performance.vsync" };
             static const char* font_oversample     { "performance.font_oversample.v2" };
         }
+        namespace ply
+        {
+            static const char* mesh                { "ply.mesh" };
+            static const char* use_normals         { "ply.normals" };
+            static const char* encoding            { "ply.encoding" };
+
+            enum encoding_types
+            {
+                textual = 0,
+                binary = 1
+            };
+        }
     }
 
     namespace textual_icons
@@ -520,7 +532,6 @@ namespace rs2
         tm2_model() : _trajectory_tracking(true)
         {   
         }
-        void draw_controller_pose_object();
         void draw_trajectory(bool is_trajectory_button_pressed);
         void update_model_trajectory(const pose_frame& pose, bool track);
         void record_trajectory(bool on) { _trajectory_tracking = on; };
@@ -593,6 +604,7 @@ namespace rs2
         bool draw_stream_selection();
         bool is_selected_combination_supported();
         std::vector<stream_profile> get_selected_profiles();
+        std::vector<stream_profile> get_supported_profiles();
         void stop(viewer_model& viewer);
         void play(const std::vector<stream_profile>& profiles, viewer_model& viewer, std::shared_ptr<rs2::asynchronous_syncer>);
         bool is_synchronized_frame(viewer_model& viewer, const frame& f);
@@ -615,6 +627,13 @@ namespace rs2
 
         bool can_enable_zero_order();
         void verify_zero_order_conditions();
+
+        void update_ui(std::vector<stream_profile> profiles_vec);
+        void get_sorted_profiles(std::vector<stream_profile>& profiles);
+
+        template<typename T, typename V>
+        bool check_profile(stream_profile p, T cond, std::map<V, std::map<int, stream_profile>>& profiles_map,
+            std::vector<stream_profile>& results, V key, int num_streams, stream_profile& def_p);
 
         void restore_ui_selection() { ui = last_valid_ui; }
         void store_ui_selection() { last_valid_ui = ui; }
@@ -652,6 +671,7 @@ namespace rs2
         std::vector<std::string> shared_fpses;
         std::map<int, std::vector<std::string>> formats;
         std::map<int, bool> stream_enabled;
+        std::map<int, bool> prev_stream_enabled;
         std::map<int, std::string> stream_display_names;
 
         subdevice_ui_selection ui;
@@ -691,6 +711,7 @@ namespace rs2
         std::shared_ptr<rs2::colorizer> depth_colorizer;
         std::shared_ptr<rs2::yuy_decoder> yuy2rgb;
         std::shared_ptr<processing_block_model> zero_order_artifact_fix;
+        std::shared_ptr<rs2::depth_huffman_decoder> depth_decoder;
 
         std::vector<std::shared_ptr<processing_block_model>> post_processing;
         bool post_processing_enabled = true;
@@ -809,8 +830,6 @@ namespace rs2
         bool allow_remove = true;
         bool show_depth_only = false;
         bool show_stream_selection = true;
-        std::map<int, std::array<uint8_t, 6>> controllers;
-        std::set<std::array<uint8_t, 6>> available_controllers;
         std::vector<std::pair<std::string, std::string>> infos;
         std::vector<std::string> restarting_device_info;
         std::set<std::string> advanced_mode_settings_file_names;
@@ -824,7 +843,6 @@ namespace rs2
         int draw_playback_controls(ux_window& window, ImFont* font, viewer_model& view);
         advanced_mode_control amc;
         std::string pretty_time(std::chrono::nanoseconds duration);
-        void draw_controllers_panel(ImFont* font, bool is_device_streaming);
         float draw_device_panel(float panel_width,
                                 ux_window& window,
                                 std::string& error_message,
@@ -936,6 +954,7 @@ namespace rs2
         rs2::frameset model;
         std::shared_ptr<processing_block_model> pc_gen;
         rs2::disparity_transform disp_to_depth;
+        rs2::depth_huffman_decoder depth_decoder;
 
         /* Post processing filter rendering */
         std::atomic<bool> render_thread_active; // True when render post processing filter rendering thread is active, False otherwise
@@ -949,7 +968,7 @@ namespace rs2
         std::shared_ptr<gl::uploader> uploader; // GL element that helps pre-emptively copy frames to the GPU
     };
 
-    void export_to_ply(const std::string& file_name, notifications_model& ns, points p, video_frame texture, bool notify = true);
+    void export_frame(const std::string& fname, std::unique_ptr<rs2::filter> exporter, notifications_model& ns, rs2::frame data, bool notify = true);
 
     // Auxillary function to save stream data in its internal (raw) format
     bool save_frame_raw_data(const std::string& filename, rs2::frame frame);

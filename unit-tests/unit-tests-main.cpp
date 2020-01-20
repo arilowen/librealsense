@@ -1,29 +1,28 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch/catch.hpp"
-#include "unit-tests-common.h"
+
 #include <iostream>
+#include <string>
+
+#include "unit-tests-common.h"
 
 int main(int argc, char* const argv[])
 {
-
     command_line_params::instance(argc, argv);
 
-    std::vector<char*> new_argvs;
-
-    std::cout << "Running tests with the following parameters: ";
-    for (auto i = 0; i < argc; i++)
-    {
-        std::string param(argv[i]);
-        std::cout << param << " ";
-    }
-    std::cout << std::endl;
+    std::vector<std::string> new_args;
+    std::string param;
 
     for (auto i = 0; i < argc; i++)
     {
-        std::string param(argv[i]);
+        param = argv[i];
         if (param != "into" && param != "from")
         {
-            new_argvs.push_back(argv[i]);
+            if (i != 0 && std::string(argv[i - 1]) == "-i")
+            {
+                param = generate_product_line_param(param);
+            }
+            new_args.push_back(param);
         }
         else
         {
@@ -40,6 +39,14 @@ int main(int argc, char* const argv[])
             }
         }
     }
+
+    std::vector<char*> new_argvs;
+    for (auto&& arg : new_args)
+    {
+        std::cout << arg << " ";
+        new_argvs.push_back(const_cast<char*>(arg.c_str()));
+    }
+    std::cout << std::endl;
 
     auto result = Catch::Session().run(static_cast<int>(new_argvs.size()), new_argvs.data());
 

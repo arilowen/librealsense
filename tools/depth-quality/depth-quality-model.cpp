@@ -1184,14 +1184,17 @@ namespace rs2
             {
 
                 // Snapshot the color-augmented version of the frame
-                if (auto colorized_frame = _colorize.colorize(frame).as<video_frame>())
+                if (auto df = frame.as<depth_frame>())
                 {
+                    if (auto colorized_frame = _colorize.colorize(frame).as<video_frame>())
+                    {
 
-                    auto stream_desc = rs2_stream_to_string(colorized_frame.get_profile().stream_type());
-                    auto filename_png = filename_base + "_" + stream_desc + "_" + fn.str() + ".png";
-                    save_to_png(filename_png.data(), colorized_frame.get_width(), colorized_frame.get_height(), colorized_frame.get_bytes_per_pixel(),
-                        colorized_frame.get_data(), colorized_frame.get_width() * colorized_frame.get_bytes_per_pixel());
+                        auto stream_desc = rs2_stream_to_string(colorized_frame.get_profile().stream_type());
+                        auto filename_png = filename_base + "_" + stream_desc + "_" + fn.str() + ".png";
+                        save_to_png(filename_png.data(), colorized_frame.get_width(), colorized_frame.get_height(), colorized_frame.get_bytes_per_pixel(),
+                            colorized_frame.get_data(), colorized_frame.get_width() * colorized_frame.get_bytes_per_pixel());
 
+                    }
                 }
                 auto original_frame = frame.as<video_frame>();
 
@@ -1230,8 +1233,13 @@ namespace rs2
                     }
                 }
 
-                if (ply_texture )
-                    export_to_ply(filename_base + "_" + fn.str() + "_3d_mesh.ply", _viewer_model.not_model, frames, ply_texture, false);
+                if (ply_texture)
+                {
+                    auto fname = filename_base + "_" + fn.str() + "_3d_mesh.ply";
+                    std::unique_ptr<rs2::filter> exporter;
+                    exporter = std::unique_ptr<rs2::filter>(new rs2::save_to_ply(fname));
+                    export_frame(fname, std::move(exporter), _viewer_model.not_model, frames, false);
+                }
             }
         }
 

@@ -7,9 +7,16 @@ project(internal-tests)
 
 set (INTERNAL_TESTS_SOURCES
     internal-tests-main.cpp
+    internal-tests-common.h
     internal-tests-usb.cpp
     internal-tests-extrinsic.cpp
-	internal-tests-types.cpp
+    internal-tests-types.cpp
+    internal-tests-uv-map.cpp
+    internal-tests-class-logic.cpp
+    internal-tests-sensor.cpp
+    internal-tests-l500.cpp
+    internal-tests-processing-blocks.cpp
+    internal-tests-expected.h
 )
 
 add_executable(${PROJECT_NAME} ${INTERNAL_TESTS_SOURCES})
